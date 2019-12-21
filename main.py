@@ -27,6 +27,12 @@ from g import SCOPES, SPREADSHEET_ID, RANGE_NAME
 # =============================================
 # =           Account Handler Class           =
 # =============================================
+"""
+
+	TODO:
+	- Unfollow users
+
+"""
 
 class AccountHandler(object):
 	def __init__(self):
@@ -53,27 +59,52 @@ class AccountHandler(object):
 		except HTTPError:
 			return False
 
-	# -----------  Delete 2 year Old Tweets  -----------
-	def delete_archived_tweets(self):
-		t = self.t
-		two_yrs_ago = datetime.now() - relativedelta(years=2)
+	# -----------  Get old tweets from tweet.json  -----------
+	def get_old_tweets(self, years_ago):
+		past_time = datetime.now() - relativedelta(years=years_ago)
 		utc=pytz.UTC
+		old_tweets = []
 
 		with open('tweet.json', 'r') as tweets:
 			tweetlist = json.load(tweets)
 			for tweet in tweetlist:
 				try:
 					created_at = datetime.strptime(tweet["created_at"],"%a %b %d %H:%M:%S %z %Y")
-					old_enough = created_at.replace(tzinfo=utc) < two_yrs_ago.replace(tzinfo=utc)
+					old_enough = created_at.replace(tzinfo=utc) < past_time.replace(tzinfo=utc)
 					if old_enough:
-						test = t.statuses.destroy(_id=tweet['id_str'])
-						print(tweet['full_text'])
-						print('DELETED ' + tweet['id_str'] + ' (' + created_at.strftime("%a %b %d %H:%M:%S %z %Y") + ')')
-						print()
+						old_tweets.append(tweet)
 				except:
 					continue
+		return old_tweets
+
+	# -----------  Delete tweets older than 2 years  -----------
+	def delete_archived_tweets(self):
+		t = self.t
+		old_tweets = self.get_old_tweets(2)
+
+		for tweet in old_tweets:
+			t.statuses.destroy(_id=tweet['id_str'])
+			print(tweet['full_text'])
+			print('DELETED ' + tweet['id_str'] + ' (' + created_at.strftime("%a %b %d %H:%M:%S %z %Y") + ')')
+			print()
+
 		return True
 
+	# -----------  Delete tweets without interactions  -----------
+	def delete_tweets_without_interactions(self):
+		t = self.t
+		old_tweets = self.get_old_tweets(1)
+
+		for tweet in old_tweets:
+			# check if there are interactions
+			interactions = int(tweet["favorite_count"])+int(tweet["retweet_count"])
+			if interactions == 0:
+				t.statuses.destroy(_id=tweet["id_str"])
+				print(tweet['full_text'] + ' (' + str(interactions) + ' interactions) ')
+				print('DELETED ' + tweet['id_str'] + ' (' + created_at.strftime("%a %b %d %H:%M:%S %z %Y") + ')')
+				print()
+
+		return True
 
 # ============================================
 # =           Exempt Handler Class           =
@@ -126,6 +157,14 @@ class ExemptHandler(object):
 # =========================================
 # =           Tweeder Functions           =
 # =========================================
+"""
+
+	TODO:
+	- Compare following list to whitelist
+	- Create a tweet ID whitelist (ex. for blog posts)
+	- Add tweets with > 100 interactions to whitelist
+
+"""
 
 class Tweeder(object):
 	def __init__(self, tw, sheet):
