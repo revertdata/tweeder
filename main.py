@@ -30,6 +30,8 @@ from g import SCOPES, SPREADSHEET_ID
 """
 
 	TODO:
+	- Get twitter followers
+	- Get list members
 	- Unfollow users
 
 """
@@ -53,6 +55,12 @@ class AccountHandler(object):
 		owned_lists = t.lists.ownerships(count=25)["lists"]
 
 		return owned_lists
+
+	# -----------  Get List Members  -----------
+	def get_twitter_list_members(self, list_id):
+		t = self.t
+		screen_names = t.lists.members(list_id=list_id, count=5000, include_entities=False, skip_status=True)
+		return True
 
 	# -----------  Get User IDs from Tweet Interactions  -----------
 	def get_tweet_interaction_user_IDs(self, action, post_id):
@@ -180,8 +188,8 @@ class ExemptHandler(object):
 		else:
 			return values
 
-	# -----------  Add User to Whitelist via Category Spreadsheet  -----------
-	def add_users(self, category, screen_names):
+	# -----------  Add User to Category Spreadsheet  -----------
+	def add_users_to_category(self, category, screen_names):
 		service = self.service
 
 		resource = {"values": screen_names}
@@ -242,7 +250,7 @@ class Tweeder(object):
 					t = tw.t
 					uinfo = t.users.show(user_id=uid)
 					uscreen_name = uinfo['screen_name'].lower()
-					sheet.add_users(action, [[uscreen_name]])
+					sheet.add_users_to_category(action, [[uscreen_name]])
 					time.sleep(15)
 
 	# -----------  Add sheet category users to a twitter list  -----------
@@ -252,6 +260,23 @@ class Tweeder(object):
 
 		screen_names = sheet.get_category_users(category)
 		tw.add_users_to_list(screen_names, list_id, list_slug, owner_screen_name)
+
+		return True
+
+	# -----------  Add user to category based off twitter information  -----------
+	def add_tw_user_to_sheet_category(self, user):
+		tw = self.tw
+		sheet = self.sheet
+
+		uscreen_name = u["screen_name"].lower()
+
+		# Verified users (I know, I know)
+		if user["verified"] == True:
+			sheet.add_users_to_category('verified', [[uscreen_name]])
+
+		# Users I have notifications on
+		if user["notifications"] == True:
+			sheet.add_users_to_category('notifications', [[uscreen_name]])
 
 		return True
 
