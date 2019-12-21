@@ -22,7 +22,7 @@ from twitter import *
 from t import ACCESS_TOKEN_KEY, ACCESS_TOKEN_SECRET, CONSUMER_KEY, CONSUMER_SECRET
 
 from googleapiclient.discovery import build
-from g import SCOPES, SPREADSHEET_ID, RANGE_NAME
+from g import SCOPES, SPREADSHEET_ID
 
 # =============================================
 # =           Account Handler Class           =
@@ -46,6 +46,13 @@ class AccountHandler(object):
 
 		self.feed = feed
 		return feed
+
+	# -----------  Get Twitter Lists  -----------
+	def get_twitter_lists(self):
+		t = self.t
+		owned_lists = t.lists.ownerships(count=25)["lists"]
+
+		return owned_lists
 
 	# -----------  Get User IDs from Tweet Interactions  -----------
 	def get_tweet_interaction_user_IDs(self, action, post_id):
@@ -106,6 +113,25 @@ class AccountHandler(object):
 
 		return True
 
+	# -----------  Add Users to Twitter List  -----------
+	def add_users_to_list(self, screen_names, list_id, list_slug, owner_screen_name):
+		t = self.t
+
+		# can only add ~100 users to a list at a time.
+		chunks = [screen_names[x:x+100] for x in range(0, len(screen_names), 100)]
+		for chunk in chunks:
+			t.lists.members.create_all(
+				list_id=list_id,
+				slug=list_slug,
+				owner_screen_name=owner_screen_name,
+				screen_name=chunk
+			)
+			print("Added the following users to the list '" + list_slug + "'.")
+			print(chunk)
+			print()
+
+		return True
+
 # ============================================
 # =           Exempt Handler Class           =
 # ============================================
@@ -128,7 +154,21 @@ class ExemptHandler(object):
 
 		return service
 
+	# -----------  Refresh Whitelist  -----------
 	def refresh_whitelist(self):
+		service = self.service
+		values = self.get_category_users('whitelist')
+
+		if not values:
+			return False
+		else:
+			return values
+
+	# -----------  Get screen_names from specific category  -----------
+	def get_category_users(self, category):
+		service = self.service
+		RANGE_NAME = category.upper() + '!A2:A'
+
 		result = service.spreadsheets().values().get(
 			spreadsheetId=SPREADSHEET_ID,
 			range=RANGE_NAME
@@ -143,6 +183,7 @@ class ExemptHandler(object):
 	# -----------  Add User to Whitelist via Category Spreadsheet  -----------
 	def add_users(self, category, screen_names):
 		service = self.service
+
 		resource = {"values": screen_names}
 		CAT_RANGE = category.upper() + "!A:A";
 		service.spreadsheets().values().append(
@@ -161,8 +202,8 @@ class ExemptHandler(object):
 
 	TODO:
 	- Compare following list to whitelist
-	- Create a tweet ID whitelist (ex. for blog posts)
 	- Add tweets with > 100 interactions to whitelist
+	- Add users in private Twitter lists to whitelist
 
 """
 
@@ -172,6 +213,7 @@ class Tweeder(object):
 		self.sheet = sheet
 		self.whitelist = []
 
+	# -----------  Refresh the whitelist and clean it  -----------
 	def refresh_whitelist(self):
 		tw = self.tw
 		sheet = self.sheet
@@ -185,6 +227,7 @@ class Tweeder(object):
 		self.whitelist = whitelist
 		return whitelist
 
+	# -----------  Add users who have interacted to their category sheets  -----------
 	def add_recent_interactions_to_whitelist(self):
 		tw = self.tw
 		sheet = self.sheet
@@ -201,6 +244,16 @@ class Tweeder(object):
 					uscreen_name = uinfo['screen_name'].lower()
 					sheet.add_users(action, [[uscreen_name]])
 					time.sleep(15)
+
+	# -----------  Add sheet category users to a twitter list  -----------
+	def add_sheet_category_users_to_tw_list(self, category, list_id, list_slug, owner_screen_name):
+		tw = self.tw
+		sheet = self.sheet
+
+		screen_names = sheet.get_category_users(category)
+		tw.add_users_to_list(screen_names, list_id, list_slug, owner_screen_name)
+
+		return True
 
 # ======  End of Tweeder Functions  =======
 
