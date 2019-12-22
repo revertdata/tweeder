@@ -33,6 +33,7 @@ class AccountHandler(object):
 	def __init__(self):
 		self.t = Twitter(auth=OAuth(ACCESS_TOKEN_KEY, ACCESS_TOKEN_SECRET, CONSUMER_KEY, CONSUMER_SECRET))
 		self.feed = []
+		self.friends = []
 
 	# -----------  Get Recent Tweets -----------
 	def get_recent_tweets(self, screen_name):
@@ -43,10 +44,11 @@ class AccountHandler(object):
 		return feed
 
 	# -----------  Get Twitter Followers  -----------
-	def get_twitter_followers(self):
+	def get_twitter_friends(self):
 		t = self.t
 		friends = t.friends.list(count=200, skip_status=True, include_user_entities=False)
 
+		self.friends = friends
 		return friends
 
 	# -----------  Get Twitter Lists  -----------
@@ -124,6 +126,8 @@ class AccountHandler(object):
 	# -----------  Unfollow users on Twitter  -----------
 	def unfollow_twitter_user(self, screen_name):
 		t = self.t
+
+		t.friends.remove(screen_name)
 		t.friendships.destroy(screen_name=screen_name)
 
 		return True
@@ -173,11 +177,17 @@ class ExemptHandler(object):
 	def refresh_whitelist(self):
 		service = self.service
 		values = self.get_category_users('whitelist')
+		whitelist = []
+
+		for value in values:
+			if value == []:
+				continue
+			whitelist.append(value[0])
 
 		if not values:
 			return False
 		else:
-			return values
+			return whitelist
 
 	# -----------  Get screen_names from specific category  -----------
 	def get_category_users(self, category):
@@ -216,7 +226,6 @@ class ExemptHandler(object):
 """
 
 	TODO:
-	- Compare following list to whitelist
 	- Add tweets with > 100 interactions to whitelist
 	- Add users in private Twitter lists to whitelist
 
@@ -226,21 +235,6 @@ class Tweeder(object):
 	def __init__(self, tw, sheet):
 		self.tw = tw
 		self.sheet = sheet
-		self.whitelist = []
-
-	# -----------  Refresh the whitelist and clean it  -----------
-	def refresh_whitelist(self):
-		tw = self.tw
-		sheet = self.sheet
-		whitelist = sheet.refresh_whitelist()
-
-		for user in sheet.whitelist:
-			if user == []:
-				continue
-			whitelist.append(user[0])
-
-		self.whitelist = whitelist
-		return whitelist
 
 	# -----------  Add users who have interacted to their category sheets  -----------
 	def add_recent_interactions_to_whitelist(self):
@@ -287,6 +281,28 @@ class Tweeder(object):
 
 		return True
 
+	# -----------  Check if user is in whitelist  -----------
+	def user_is_whitelisted(self, screen_name):
+		if screen_name in sheet.whitelist:
+			return True
+		return False
+
+	# -----------  Compare following list to whitelist  -----------
+	def compare_following_list_to_whitelist(self):
+		tw = self.tw
+		sheet = self.sheet
+
+		friends = tw.friends
+		if is_empty(friends):
+			friends = tw.get_twitter_friends()
+
+		for friend in range(len(friends)):
+			if self.user_is_whitelisted(friends[friend]):
+				continue
+			newly_whitelisted = self.add_tw_user_to_sheet_category(friends[friend])
+			if newly_whitelisted:
+				continue
+			tw.unfollow_twitter_user(friend)
 
 # ======  End of Tweeder Functions  =======
 
