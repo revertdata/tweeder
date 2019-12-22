@@ -11,6 +11,7 @@ import pytz
 from datetime import datetime, timezone
 from dateutil.relativedelta import relativedelta
 
+from picker import *
 from httplib2 import Http
 from oauth2client import file, client, tools
 from urllib.request import urlopen, HTTPError
@@ -294,7 +295,20 @@ def main():
 	# sheet = ExemptHandler()
 	# Tweeder = Tweeder(tw, sheet)
 
-	# More code that integrates tw & sheet
+	opts = Picker(
+		title = 'What would you like to do?',
+		options = [
+			"View whitelisted users",
+			"Delete tweets older than 2 years",
+			"Delete tweets without interactions",
+		]
+	).getSelected()
+
+	for opt in opts:
+		if opt == 'View whitelisted users':
+			whitelist = sheet.refresh_whitelist()
+			for user in whitelist:
+				print(user)
 
 	return
 
