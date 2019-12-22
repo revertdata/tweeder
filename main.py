@@ -27,14 +27,6 @@ from g import SCOPES, SPREADSHEET_ID
 # =============================================
 # =           Account Handler Class           =
 # =============================================
-"""
-
-	TODO:
-	- Get twitter followers
-	- Get list members
-	- Unfollow users
-
-"""
 
 class AccountHandler(object):
 	def __init__(self):
@@ -48,6 +40,13 @@ class AccountHandler(object):
 
 		self.feed = feed
 		return feed
+
+	# -----------  Get Twitter Followers  -----------
+	def get_twitter_followers(self):
+		t = self.t
+		friends = t.friends.list(count=200, skip_status=True, include_user_entities=False)
+
+		return friends
 
 	# -----------  Get Twitter Lists  -----------
 	def get_twitter_lists(self):
@@ -118,6 +117,13 @@ class AccountHandler(object):
 				print(tweet['full_text'] + ' (' + str(interactions) + ' interactions) ')
 				print('DELETED ' + tweet['id_str'] + ' (' + created_at.strftime("%a %b %d %H:%M:%S %z %Y") + ')')
 				print()
+
+		return True
+
+	# -----------  Unfollow users on Twitter  -----------
+	def unfollow_twitter_user(self, screen_name):
+		t = self.t
+		t.friendships.destroy(screen_name=screen_name)
 
 		return True
 
@@ -279,6 +285,7 @@ class Tweeder(object):
 			sheet.add_users_to_category('notifications', [[uscreen_name]])
 
 		return True
+
 
 # ======  End of Tweeder Functions  =======
 
