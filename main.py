@@ -16,14 +16,19 @@ from httplib2 import Http
 from oauth2client import file, client, tools
 from urllib.request import urlopen, HTTPError
 
+import sys
 import re
 import json
+import random
 
 from twitter import *
 from t import ACCESS_TOKEN_KEY, ACCESS_TOKEN_SECRET, CONSUMER_KEY, CONSUMER_SECRET
 
 from googleapiclient.discovery import build
 from g import SCOPES, SPREADSHEET_ID
+
+STARTC = '\033[90m'
+ENDC = '\033[0m'
 
 # =============================================
 # =           Account Handler Class           =
@@ -154,11 +159,17 @@ class AccountHandler(object):
 # ============================================
 # =           Exempt Handler Class           =
 # ============================================
+"""
+
+	TODO:
+	- Delete mentions from before 6 months ago
+
+"""
 
 class ExemptHandler(object):
 	def __init__(self):
 		self.service = self.g_auth()
-		self.whitelist = self.refresh_whitelist()
+		self.whitelist = self.get_whitelist()
 
 		return
 
@@ -173,8 +184,8 @@ class ExemptHandler(object):
 
 		return service
 
-	# -----------  Refresh Whitelist  -----------
-	def refresh_whitelist(self):
+	# -----------  Get Whitelist  -----------
+	def get_whitelist(self):
 		service = self.service
 		values = self.get_category_users('whitelist')
 		whitelist = []
@@ -228,6 +239,7 @@ class ExemptHandler(object):
 	TODO:
 	- Add tweets with > 100 interactions to whitelist
 	- Add users in private Twitter lists to whitelist
+	- Check if whitelist user follows me
 
 """
 
@@ -252,7 +264,7 @@ class Tweeder(object):
 					uinfo = t.users.show(user_id=uid)
 					uscreen_name = uinfo['screen_name'].lower()
 					sheet.add_users_to_category(action, [[uscreen_name]])
-					time.sleep(15)
+					time.sleep(random.randrange(1, 4) * 2)
 
 	# -----------  Add sheet category users to a twitter list  -----------
 	def add_sheet_category_users_to_tw_list(self, category, list_id, list_slug, owner_screen_name):
@@ -269,63 +281,110 @@ class Tweeder(object):
 		tw = self.tw
 		sheet = self.sheet
 
-		uscreen_name = u["screen_name"].lower()
+		uscreen_name = user["screen_name"].lower()
 
 		# Verified users (I know, I know)
 		if user["verified"] == True:
 			sheet.add_users_to_category('verified', [[uscreen_name]])
+			return True
 
 		# Users I have notifications on
 		if user["notifications"] == True:
 			sheet.add_users_to_category('notifications', [[uscreen_name]])
+			return True
 
-		return True
+		return False
+
+	# -----------  View whitelisted users  -----------
+	def view_whitelisted_users(self):
+		tw = self.tw
+		sheet = self.sheet
+
+		whitelist = sheet.get_whitelist()
+		for screen_name in whitelist:
+			print(screen_name)
 
 	# -----------  Check if user is in whitelist  -----------
 	def user_is_whitelisted(self, screen_name):
+		sheet = self.sheet
+
 		if screen_name in sheet.whitelist:
 			return True
 		return False
 
 	# -----------  Compare following list to whitelist  -----------
-	def compare_following_list_to_whitelist(self):
+	def unfollow_inactive_users(self):
 		tw = self.tw
 		sheet = self.sheet
 
 		friends = tw.friends
-		if is_empty(friends):
+		if friends == []:
+			print('Friends are empty.  Retrieving new friends list...')
 			friends = tw.get_twitter_friends()
 
-		for friend in range(len(friends)):
-			if self.user_is_whitelisted(friends[friend]):
+		for friend in friends["users"]:
+			screen_name = friend['screen_name']
+			newly_whitelisted = self.add_tw_user_to_sheet_category(friend)
+			if self.user_is_whitelisted(screen_name) or newly_whitelisted:
+				print(STARTC + screen_name + ' is whitelisted.' + ENDC)
 				continue
-			newly_whitelisted = self.add_tw_user_to_sheet_category(friends[friend])
-			if newly_whitelisted:
-				continue
-			tw.unfollow_twitter_user(friend)
+			else:
+				unfollowed = tw.unfollow_twitter_user(friends[friend])
+				print('Unfollowed ' + screen_name)
+				print(unfollowed)
+				print()
+				time.sleep(random.randrange(1, 4) * 2)
 
-# ======  End of Tweeder Functions  =======
 
-def main():
-	# tw = AccountHandler()
-	# sheet = ExemptHandler()
-	# Tweeder = Tweeder(tw, sheet)
+# ======================================
+# =           Helper Options           =
+# ======================================
+
+def menu():
+	user_options = [
+		"View whitelisted users",
+		"Delete tweets older than 2 years",
+		"Delete tweets without interactions",
+		"Unfollow users",
+		"Add recent interactions to whitelist",
+		"test",
+	]
 
 	opts = Picker(
 		title = 'What would you like to do?',
-		options = [
-			"View whitelisted users",
-			"Delete tweets older than 2 years",
-			"Delete tweets without interactions",
-		]
+		options = user_options
 	).getSelected()
 
 	for opt in opts:
-		if opt == 'View whitelisted users':
-			whitelist = sheet.refresh_whitelist()
-			for user in whitelist:
-				print(user)
+		if opt == user_options[0]:
+			tweeder.view_whitelisted_users()
+		elif opt == user_options[1]:
+			tw.delete_archived_tweets()
+		elif opt == user_options[2]:
+			tw.delete_tweets_without_interactions()
+		elif opt == user_options[3]:
+			tweeder.unfollow_inactive_users()
+		elif opt == user_options[4]:
+			tweeder.add_recent_interactions_to_whitelist()
+		elif opt == user_options[5]:
+			print("Test successful.")
 
+	answ = input("Would you like to do more? (Y/N) ")
+	if answ.lower() in ('n', 'no', 'exit', 'quit', 'q'):
+		return False
+
+	return True
+
+def main():
+	tw = AccountHandler()
+	sheet = ExemptHandler()
+	tweeder = Tweeder(tw, sheet)
+
+	running = True
+	while running:
+		running = menu()
+
+	print("Thank you, come again!")
 	return
 
 if __name__ == '__main__':
