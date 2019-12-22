@@ -14,6 +14,7 @@ from dateutil.relativedelta import relativedelta
 from picker import *
 from httplib2 import Http
 from oauth2client import file, client, tools
+from oauth2client.service_account import ServiceAccountCredentials
 from urllib.request import urlopen, HTTPError
 
 import sys
@@ -24,11 +25,13 @@ import random
 from twitter import *
 from t import ACCESS_TOKEN_KEY, ACCESS_TOKEN_SECRET, CONSUMER_KEY, CONSUMER_SECRET
 
+import gspread
 from googleapiclient.discovery import build
-from g import SCOPES, SPREADSHEET_ID
+from g import SCOPES, SPREADSHEET_ID, GSPREAD_SCOPES
 
-STARTC = '\033[90m'
-ENDC = '\033[0m'
+STARTC='\033[90m'
+ENDC='\033[0m'
+utc=pytz.UTC
 
 # =============================================
 # =           Account Handler Class           =
@@ -84,7 +87,6 @@ class AccountHandler(object):
 	# -----------  Get old tweets from tweet.json  -----------
 	def get_old_tweets(self, years_ago):
 		past_time = datetime.now() - relativedelta(years=years_ago)
-		utc=pytz.UTC
 		old_tweets = []
 
 		with open('tweet.json', 'r') as tweets:
@@ -168,7 +170,7 @@ class AccountHandler(object):
 
 class ExemptHandler(object):
 	def __init__(self):
-		self.service = self.g_auth()
+		self.service, self.client = self.g_auth()
 		self.whitelist = self.get_whitelist()
 
 		return
@@ -182,7 +184,10 @@ class ExemptHandler(object):
 			creds = tools.run_flow(flow, store)
 		service = build('sheets', 'v4', http=creds.authorize(Http()))
 
-		return service
+		gcreds = ServiceAccountCredentials.from_json_keyfile_name('service_credentials.json', GSPREAD_SCOPES)
+		client = gspread.authorize(gcreds)
+
+		return service, client
 
 	# -----------  Get Whitelist  -----------
 	def get_whitelist(self):
@@ -230,6 +235,55 @@ class ExemptHandler(object):
 		).execute()
 
 		return
+
+	# -----------  Remove User from Category Spreadsheet  -----------
+	def remove_user_from_category(self, category, screen_name):
+		service = self.service
+
+		category_sheet = self.get_category_users(category)
+		row_index = category_sheet.index(screen_name)
+
+		if screen_name in category_sheet:
+			self.remove_row_from_category_spreadsheet(category, row_index+2)
+
+		return True
+
+	# -----------  Remove row from Category Spreadsheet  -----------
+	def remove_row_from_category_spreadsheet(self, category, row_index):
+		service = self.service
+		client = self.client
+
+		sheet = client.open("Twitter mentions").sheet1
+		print(sheet.row_values(row_index))
+		deleted = sheet.delete_row(row_index)
+
+		return deleted
+
+	# -----------  Delete old dates from MENTIONS Spreadsheet  -----------
+	def remove_old_mentions(self):
+		service = self.service
+		MENTIONS_DATE_COL = "MENTIONS!D2:D"
+
+		result = service.spreadsheets().values().get(
+			spreadsheetId=SPREADSHEET_ID,
+			range=MENTIONS_DATE_COL
+		).execute()
+		values = result.get('values', [])
+
+		if not values:
+			return False
+		else:
+			past_time = datetime.now() - relativedelta(months=6)
+			print('Deleting mentions older than ' + str(past_time.replace(tzinfo=utc)) + '...')
+			row_index = 2 # row_index is offset by 2 in Google Sheets
+			for datecol in values:
+				if datetime.strptime(datecol[0],"%m/%d/%Y").replace(tzinfo=utc) < past_time.replace(tzinfo=utc):
+					self.remove_row_from_category_spreadsheet('mentions', row_index)
+				else:
+					# only increase the row_index if you didn't delete a row
+					row_index += 1
+
+		return True
 
 # =========================================
 # =           Tweeder Functions           =
@@ -341,6 +395,10 @@ class Tweeder(object):
 # ======================================
 
 def menu():
+	_tw = AccountHandler()
+	_sheet = ExemptHandler()
+	tweeder = Tweeder(_tw, _sheet)
+
 	user_options = [
 		"View whitelisted users",
 		"Delete tweets older than 2 years",
@@ -348,6 +406,7 @@ def menu():
 		"Unfollow users",
 		"Add recent interactions to whitelist",
 		"test",
+		"Remove mentions > 6 months"
 	]
 
 	opts = Picker(
@@ -359,15 +418,17 @@ def menu():
 		if opt == user_options[0]:
 			tweeder.view_whitelisted_users()
 		elif opt == user_options[1]:
-			tw.delete_archived_tweets()
+			tweeder.tw.delete_archived_tweets()
 		elif opt == user_options[2]:
-			tw.delete_tweets_without_interactions()
+			tweeder.tw.delete_tweets_without_interactions()
 		elif opt == user_options[3]:
 			tweeder.unfollow_inactive_users()
 		elif opt == user_options[4]:
 			tweeder.add_recent_interactions_to_whitelist()
 		elif opt == user_options[5]:
 			print("Test successful.")
+		elif opt == user_options[6]:
+			tweeder.sheet.remove_old_mentions()
 
 	answ = input("Would you like to do more? (Y/N) ")
 	if answ.lower() in ('n', 'no', 'exit', 'quit', 'q'):
@@ -376,10 +437,6 @@ def menu():
 	return True
 
 def main():
-	tw = AccountHandler()
-	sheet = ExemptHandler()
-	tweeder = Tweeder(tw, sheet)
-
 	running = True
 	while running:
 		running = menu()

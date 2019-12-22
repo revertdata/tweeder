@@ -3,6 +3,7 @@ t.py
 g.py
 token.json
 credentials.json
+service_credentials.json
 
 # -----------  TEMP Files  -----------
 .DS_Store
