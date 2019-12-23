@@ -387,13 +387,17 @@ class Tweeder(object):
 		for friend in friends["users"]:
 			screen_name = friend['screen_name'].lower()
 			try:
-				newly_whitelisted = self.add_tw_user_to_sheet_category(friend)
-				if self.user_is_whitelisted(screen_name) or newly_whitelisted:
+				if self.user_is_whitelisted(screen_name):
 					print(STARTC + screen_name + ' is whitelisted.' + ENDC)
 					continue
 				else:
-					unfollowed = tw.unfollow_twitter_user(screen_name)
-					print('Unfollowed ' + screen_name)
+					newly_whitelisted = self.add_tw_user_to_sheet_category(friend)
+					if newly_whitelisted:
+						print(STARTC + screen_name + ' is newly whitelisted.' + ENDC)
+						continue
+					else:
+						unfollowed = tw.unfollow_twitter_user(screen_name)
+						print('Unfollowed ' + screen_name)
 			except Exception as e:
 				print()
 				print("-----------")
