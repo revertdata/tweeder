@@ -97,7 +97,14 @@ class AccountHandler(object):
 					old_enough = created_at.replace(tzinfo=utc) < past_time.replace(tzinfo=utc)
 					if old_enough:
 						old_tweets.append(tweet)
-				except:
+				except Exception as e:
+					print()
+					print("-----------")
+					print("ERROR in AccountHandler.get_old_tweets:")
+					print(STARTC)
+					print(e)
+					print(ENDC)
+					print("-----------")
 					continue
 		return old_tweets
 
@@ -133,8 +140,6 @@ class AccountHandler(object):
 	# -----------  Unfollow users on Twitter  -----------
 	def unfollow_twitter_user(self, screen_name):
 		t = self.t
-
-		t.friends.remove(screen_name)
 		t.friendships.destroy(screen_name=screen_name)
 
 		return True
@@ -172,6 +177,7 @@ class ExemptHandler(object):
 	def __init__(self):
 		self.service, self.client = self.g_auth()
 		self.whitelist = self.get_whitelist()
+		self.categories = ['MENTIONS', 'FAVORITED', 'RETWEETED', 'VERIFIED', 'NOTIFICATIONS', 'WHITELIST', 'TWEETS']
 
 		return
 
@@ -241,10 +247,12 @@ class ExemptHandler(object):
 		service = self.service
 
 		category_sheet = self.get_category_users(category)
-		row_index = category_sheet.index(screen_name)
-
 		if screen_name in category_sheet:
-			self.remove_row_from_category_spreadsheet(category, row_index+2)
+			rows_to_remove = category_sheet.count(screen_name)
+			for x in range(rows_to_remove):
+				row_index = category_sheet.index(screen_name)
+				self.remove_row_from_category_spreadsheet(category, row_index+2)
+				print(STARTC+"Removed "+screen_name+"from "+category)
 
 		return True
 
@@ -315,8 +323,8 @@ class Tweeder(object):
 				uids = tw.get_tweet_interaction_user_IDs(action, tid)
 				for uid in uids:
 					t = tw.t
-					uinfo = t.users.show(user_id=uid)
-					uscreen_name = uinfo['screen_name'].lower()
+					user = t.users.show(user_id=uid)
+					uscreen_name = user['screen_name'].lower()
 					sheet.add_users_to_category(action, [[uscreen_name]])
 					time.sleep(random.randrange(1, 4) * 2)
 
@@ -377,28 +385,64 @@ class Tweeder(object):
 			friends = tw.get_twitter_friends()
 
 		for friend in friends["users"]:
-			screen_name = friend['screen_name']
-			newly_whitelisted = self.add_tw_user_to_sheet_category(friend)
-			if self.user_is_whitelisted(screen_name) or newly_whitelisted:
-				print(STARTC + screen_name + ' is whitelisted.' + ENDC)
-				continue
-			else:
-				unfollowed = tw.unfollow_twitter_user(friends[friend])
-				print('Unfollowed ' + screen_name)
-				print(unfollowed)
+			screen_name = friend['screen_name'].lower()
+			try:
+				newly_whitelisted = self.add_tw_user_to_sheet_category(friend)
+				if self.user_is_whitelisted(screen_name) or newly_whitelisted:
+					print(STARTC + screen_name + ' is whitelisted.' + ENDC)
+					continue
+				else:
+					unfollowed = tw.unfollow_twitter_user(screen_name)
+					print('Unfollowed ' + screen_name)
+			except Exception as e:
 				print()
-				time.sleep(random.randrange(1, 4) * 2)
+				print("-----------")
+				print("ERROR in Tweeder.unfollow_inactive_users:")
+				print(STARTC)
+				print(e)
+				print(ENDC)
+				print("-----------")
+				continue
+			time.sleep(random.randrange(1, 4) * 2)
 
+	# -----------  Remove users from categories if not following  -----------
+	def remove_unfollowers_from_categories(self, source_screen_name):
+		tw = self.tw
+		sheet = self.sheet
+		categories = sheet.categories
+		whitelist = sheet.get_whitelist()
+
+		max_requests = 150
+		for screen_name in whitelist:
+			screen_name = screen_name.strip().lower()
+			try:
+				friendship = tw.t.friendships.show(source_screen_name=source_screen_name, target_screen_name=screen_name)
+				max_requests -= 1
+
+				if friendship["relationship"]["target"]["following"] == False:
+					print(STARTC + screen_name + " is not following. "+ENDC)
+					for category in categories:
+						sheet.remove_user_from_category(category, screen_name)
+
+				if max_requests <= 0:
+					input('MAX_REQUESTS Limit reached.  Please wait 15 minutes to try again ('+datetime.now() + relativedelta(minutes=15)+').  Type any key to acknowledge and continue.')
+					return False
+			except Exception as e:
+				print()
+				print("-----------")
+				print("ERROR in Tweeder.remove_unfollowers_from_categories:")
+				print(STARTC)
+				print(e)
+				print(ENDC)
+				print("-----------")
+				continue
+			time.sleep(random.randrange(1, 4) * 2)
 
 # ======================================
 # =           Helper Options           =
 # ======================================
 
 def menu():
-	_tw = AccountHandler()
-	_sheet = ExemptHandler()
-	tweeder = Tweeder(_tw, _sheet)
-
 	user_options = [
 		"View whitelisted users",
 		"Delete tweets older than 2 years",
@@ -406,13 +450,20 @@ def menu():
 		"Unfollow users",
 		"Add recent interactions to whitelist",
 		"test",
-		"Remove mentions > 6 months"
+		"Remove mentions > 6 months",
+		"Clean category users"
 	]
 
 	opts = Picker(
 		title = 'What would you like to do?',
 		options = user_options
 	).getSelected()
+
+	# ===== CONNECT TO RESOURCES AND CLASSES =====
+	_tw = AccountHandler()
+	_sheet = ExemptHandler()
+	tweeder = Tweeder(_tw, _sheet)
+	# ===== CONNECTION COMPLETE =====
 
 	for opt in opts:
 		if opt == user_options[0]:
@@ -429,6 +480,8 @@ def menu():
 			print("Test successful.")
 		elif opt == user_options[6]:
 			tweeder.sheet.remove_old_mentions()
+		elif opt == user_options[7]:
+			tweeder.remove_unfollowers_from_categories('telepathics')
 
 	answ = input("Would you like to do more? (Y/N) ")
 	if answ.lower() in ('n', 'no', 'exit', 'quit', 'q'):
