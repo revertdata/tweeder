@@ -347,7 +347,12 @@ class Tweeder(object):
 					user = t.users.show(user_id=uid)
 					uscreen_name = user['screen_name'].lower()
 					sheet.add_users_to_category(action, [[uscreen_name]])
-					time.sleep(random.randrange(1, 4) * 2)
+					sleepy = random.randrange(1, 4) * 2
+					_x = sleepy
+					for _ in range(sleepy+1):
+						print('\r0{0}\r'.format(_x), end='', flush=True)
+						_x -= 1
+						time.sleep(1)
 
 	# -----------  Add sheet category users to a twitter list  -----------
 	def add_sheet_category_users_to_tw_list(self, category, list_id, list_slug, owner_screen_name):
@@ -419,6 +424,7 @@ class Tweeder(object):
 					else:
 						unfollowed = tw.unfollow_twitter_user(screen_name)
 						print('Unfollowed ' + screen_name)
+
 			except Exception as e:
 				print()
 				print("-----------")
@@ -428,7 +434,12 @@ class Tweeder(object):
 				print(ENDC)
 				print("-----------")
 				continue
-			time.sleep(random.randrange(1, 4) * 2)
+			sleepy = random.randrange(1, 4) * 2
+			_x = sleepy
+			for _ in range(sleepy+1):
+				print('\r0{0}\r'.format(_x), end='', flush=True)
+				_x -= 1
+				time.sleep(1)
 
 	# -----------  Remove users from categories if not following  -----------
 	def remove_unfollowers_from_categories(self, source_screen_name):
@@ -461,7 +472,12 @@ class Tweeder(object):
 				print(ENDC)
 				print("-----------")
 				continue
-			time.sleep(random.randrange(1, 4) * 2)
+			sleepy = random.randrange(1, 4) * 2
+			_x = sleepy
+			for _ in range(sleepy+1):
+				print('\r0{0}\r'.format(_x), end='', flush=True)
+				_x -= 1
+				time.sleep(1)
 
 # ======================================
 # =           Helper Options           =
