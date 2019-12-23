@@ -100,40 +100,61 @@ class AccountHandler(object):
 				except Exception as e:
 					print()
 					print("-----------")
+					print()
 					print("ERROR in AccountHandler.get_old_tweets:")
 					print(STARTC)
 					print(e)
 					print(ENDC)
 					print("-----------")
 					continue
-		return old_tweets
+		return old_tweets, created_at
 
 	# -----------  Delete tweets older than 2 years  -----------
 	def delete_archived_tweets(self):
 		t = self.t
-		old_tweets = self.get_old_tweets(2)
+		old_tweets, created_at = self.get_old_tweets(2)
 
 		for tweet in old_tweets:
-			t.statuses.destroy(_id=tweet['id_str'])
-			print(tweet['full_text'])
-			print('DELETED ' + tweet['id_str'] + ' (' + created_at.strftime("%a %b %d %H:%M:%S %z %Y") + ')')
-			print()
+			try:
+				t.statuses.destroy(_id=tweet['id_str'])
+				print(tweet['full_text'])
+				print('DELETED ' + tweet['id_str'] + ' (' + created_at.strftime("%a %b %d %H:%M:%S %z %Y") + ')')
+				print()
+			except Exception as e:
+					print()
+					print("-----------")
+					print()
+					print("ERROR in AccountHandler.get_old_tweets:")
+					print(STARTC)
+					print(e)
+					print(ENDC)
+					print("-----------")
 
 		return True
 
 	# -----------  Delete tweets without interactions  -----------
 	def delete_tweets_without_interactions(self):
 		t = self.t
-		old_tweets = self.get_old_tweets(1)
+		old_tweets, created_at = self.get_old_tweets(0)
 
 		for tweet in old_tweets:
-			# check if there are interactions
-			interactions = int(tweet["favorite_count"])+int(tweet["retweet_count"])
-			if interactions == 0:
-				t.statuses.destroy(_id=tweet["id_str"])
-				print(tweet['full_text'] + ' (' + str(interactions) + ' interactions) ')
-				print('DELETED ' + tweet['id_str'] + ' (' + created_at.strftime("%a %b %d %H:%M:%S %z %Y") + ')')
-				print()
+			try:
+				# check if there are interactions
+				interactions = int(tweet["favorite_count"])+int(tweet["retweet_count"])
+				if interactions == 0:
+					t.statuses.destroy(_id=tweet["id_str"])
+					print(tweet['full_text'] + ' (' + str(interactions) + ' interactions) ')
+					print('DELETED ' + tweet['id_str'] + ' (' + created_at.strftime("%a %b %d %H:%M:%S %z %Y") + ')')
+					print()
+			except Exception as e:
+					print()
+					print("-----------")
+					print()
+					print("ERROR in AccountHandler.get_old_tweets:")
+					print(STARTC)
+					print(e)
+					print(ENDC)
+					print("-----------")
 
 		return True
 
