@@ -52,9 +52,9 @@ class AccountHandler(object):
 		return feed
 
 	# -----------  Get Twitter Followers  -----------
-	def get_twitter_friends(self):
+	def get_twitter_friends(self, cursor):
 		t = self.t
-		friends = t.friends.list(count=200, skip_status=True, include_user_entities=False)
+		friends = t.friends.list(count=200, skip_status=True, include_user_entities=False, cursor=cursor)
 
 		self.friends = friends
 		return friends
@@ -248,6 +248,46 @@ class ExemptHandler(object):
 		else:
 			return values
 
+	# -----------  Get next Twitter API cursor -----------
+	def get_next_cursor(self):
+		service = self.service
+		RANGE_NAME = 'CURSOR!A2'
+
+		result = service.spreadsheets().values().get(
+			spreadsheetId=SPREADSHEET_ID,
+			range=RANGE_NAME
+		).execute()
+		values = result.get('values', [])
+
+		if not values:
+			return False
+		else:
+			return values[0][0]
+
+	# -----------  Replace next twitter API cursor  -----------
+	def overwrite_next_cursor(self, next_cursor):
+		service = self.service
+		client = self.client
+
+		resource = {"values": [[next_cursor]]}
+		CAT_RANGE = "CURSOR!A2";
+
+		# delete old cursor
+		service.spreadsheets().values().clear(
+			spreadsheetId=SPREADSHEET_ID,
+			range=CAT_RANGE,
+		).execute()
+
+		# overwrite
+		service.spreadsheets().values().append(
+			spreadsheetId=SPREADSHEET_ID,
+			range=CAT_RANGE,
+			body=resource,
+			valueInputOption="USER_ENTERED"
+		).execute()
+
+		return
+
 	# -----------  Add User to Category Spreadsheet  -----------
 	def add_users_to_category(self, category, screen_names):
 		service = self.service
@@ -406,15 +446,17 @@ class Tweeder(object):
 		sheet = self.sheet
 
 		friends = tw.friends
+		next_cursor = sheet.get_next_cursor()
 		if friends == []:
-			print('Friends are empty.  Retrieving new friends list...')
-			friends = tw.get_twitter_friends()
+			friends = tw.get_twitter_friends(next_cursor)
 
-		for friend in friends["users"]:
+		whitelisted = 0
+		for friend in friends['users']:
 			screen_name = friend['screen_name'].lower()
 			try:
 				if self.user_is_whitelisted(screen_name):
 					print(STARTC + screen_name + ' is whitelisted.' + ENDC)
+					whitelisted += 1
 					continue
 				else:
 					newly_whitelisted = self.add_tw_user_to_sheet_category(friend)
@@ -440,6 +482,11 @@ class Tweeder(object):
 				print('\r0{0}\r'.format(_x), end='', flush=True)
 				_x -= 1
 				time.sleep(1)
+
+		if whitelisted == 200:
+			sheet.overwrite_next_cursor(friends['next_cursor'])
+			print("Everyone in this batch has been whitelisted. NEXT CURSOR overwritten.")
+
 
 	# -----------  Remove users from categories if not following  -----------
 	def remove_unfollowers_from_categories(self, source_screen_name):
@@ -520,9 +567,12 @@ def menu():
 		elif opt == user_options[5]:
 			print("Test successful.")
 		elif opt == user_options[6]:
+			# TODO check if user is in whitelist after removal, unfollow if not
 			tweeder.sheet.remove_old_mentions()
 		elif opt == user_options[7]:
 			tweeder.remove_unfollowers_from_categories('telepathics')
+		elif opt == user_options[8]:
+			print(tweeder.sheet.get_next_cursor())
 
 	answ = input("Would you like to do more? (Y/N) ")
 	if answ.lower() in ('n', 'no', 'exit', 'quit', 'q'):
