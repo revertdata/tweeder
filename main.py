@@ -60,9 +60,9 @@ class AccountHandler(object):
 		return friends
 
 	# -----------  Get Twitter Lists  -----------
-	def get_twitter_lists(self):
+	def get_twitter_lists(self, screen_name):
 		t = self.t
-		owned_lists = t.lists.ownerships(count=25)["lists"]
+		owned_lists = t.lists.ownerships(count=25, screen_name=screen_name)["lists"]
 
 		return owned_lists
 
@@ -70,7 +70,8 @@ class AccountHandler(object):
 	def get_twitter_list_members(self, list_id):
 		t = self.t
 		screen_names = t.lists.members(list_id=list_id, count=5000, include_entities=False, skip_status=True)
-		return True
+
+		return screen_names
 
 	# -----------  Get User IDs from Tweet Interactions  -----------
 	def get_tweet_interaction_user_IDs(self, action, post_id):
@@ -423,6 +424,25 @@ class Tweeder(object):
 
 		return False
 
+	# -----------  Add listed users to whitelist  -----------
+	def add_listed_users_to_whitelist(self, owner_screen_name):
+		tw = self.tw
+		sheet = self.sheet
+
+		lists = tw.get_twitter_lists(owner_screen_name)
+		for li in lists:
+			members = tw.get_twitter_list_members(li["id"])
+			print("Adding users from '"+li["name"])
+			for user in members["users"]:
+				uscreen_name = user['screen_name'].lower()
+				sheet.add_users_to_category('listed', [[uscreen_name]])
+				sleepy = random.randrange(1, 4) * 2
+				_x = sleepy
+				for _ in range(sleepy+1):
+					print('\r0{0}{1}\r'.format(uscreen_name, _x), end='', flush=True)
+					_x -= 1
+					time.sleep(1)
+
 	# -----------  View whitelisted users  -----------
 	def view_whitelisted_users(self):
 		tw = self.tw
@@ -487,7 +507,6 @@ class Tweeder(object):
 			sheet.overwrite_next_cursor(friends['next_cursor'])
 			print("Everyone in this batch has been whitelisted. NEXT CURSOR overwritten.")
 
-
 	# -----------  Remove users from categories if not following  -----------
 	def remove_unfollowers_from_categories(self, source_screen_name):
 		tw = self.tw
@@ -526,6 +545,7 @@ class Tweeder(object):
 				_x -= 1
 				time.sleep(1)
 
+
 # ======================================
 # =           Helper Options           =
 # ======================================
@@ -537,7 +557,7 @@ def menu():
 		"Delete tweets without interactions",
 		"Unfollow users",
 		"Add recent interactions to whitelist",
-		"test",
+		"Add listed users to whitelist",
 		"Remove mentions > 6 months",
 		"Clean category users"
 	]
@@ -565,14 +585,12 @@ def menu():
 		elif opt == user_options[4]:
 			tweeder.add_recent_interactions_to_whitelist()
 		elif opt == user_options[5]:
-			print("Test successful.")
+			tweeder.add_listed_users_to_whitelist('telepathics')
 		elif opt == user_options[6]:
 			# TODO check if user is in whitelist after removal, unfollow if not
 			tweeder.sheet.remove_old_mentions()
 		elif opt == user_options[7]:
 			tweeder.remove_unfollowers_from_categories('telepathics')
-		elif opt == user_options[8]:
-			print(tweeder.sheet.get_next_cursor())
 
 	answ = input("Would you like to do more? (Y/N) ")
 	if answ.lower() in ('n', 'no', 'exit', 'quit', 'q'):
