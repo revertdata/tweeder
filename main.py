@@ -559,7 +559,8 @@ def menu():
 		"Add recent interactions to whitelist",
 		"Add listed users to whitelist",
 		"Remove mentions > 6 months",
-		"Clean category users"
+		"Clean category users",
+		"Reset following CURSOR"
 	]
 
 	opts = Picker(
@@ -591,6 +592,8 @@ def menu():
 			tweeder.sheet.remove_old_mentions()
 		elif opt == user_options[7]:
 			tweeder.remove_unfollowers_from_categories('telepathics')
+		elif opt == user_options[8]:
+			tweeder.sheet.overwrite_next_cursor('-1')
 
 	answ = input("Would you like to do more? (Y/N) ")
 	if answ.lower() in ('n', 'no', 'exit', 'quit', 'q'):
