@@ -555,8 +555,13 @@ class Tweeder(object):
 						sheet.remove_user_from_category(category, screen_name)
 
 				if max_requests <= 0:
-					input('MAX_REQUESTS Limit reached.  Please wait 15 minutes to try again ('+str(datetime.now()+relativedelta(minutes=15))+').  Type any key to acknowledge and continue.')
-					return False
+					print('MAX_REQUESTS Limit reached.  Please wait 15 minutes to try again ('+str(datetime.now()+relativedelta(minutes=15))+').')
+					sleepy = 900 # 15 minutes
+					_x = sleepy
+					for _ in range(sleepy+1):
+						print('\r0{0} '.format(_x)+screen_name+'\r', end='', flush=True)
+						_x -= 1
+						time.sleep(1)
 			except Exception as e:
 				print()
 				print("-----------")
@@ -582,7 +587,7 @@ class Tweeder(object):
 
 def menu():
 	user_options = [
-		"View whitelisted users",
+		"Daily tasks",
 		"Delete tweets older than 2 years",
 		"Delete tweets without interactions",
 		"Unfollow users",
@@ -606,7 +611,8 @@ def menu():
 
 	for opt in opts:
 		if opt == user_options[0]:
-			tweeder.view_whitelisted_users()
+			tweeder.sheet.remove_old_mentions()
+			tweeder.unfollow_inactive_users()
 		elif opt == user_options[1]:
 			tweeder.tw.delete_archived_tweets()
 		elif opt == user_options[2]:
