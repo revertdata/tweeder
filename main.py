@@ -199,7 +199,7 @@ class ExemptHandler(object):
 	def __init__(self):
 		self.service, self.client = self.g_auth()
 		self.whitelist = self.get_whitelist()
-		self.categories = ['MENTIONS', 'FAVORITED', 'RETWEETED', 'VERIFIED', 'NOTIFICATIONS', 'WHITELIST', 'TWEETS']
+		self.categories = ['MENTIONS', 'FAVORITED', 'RETWEETED', 'VERIFIED', 'NOTIFICATIONS', 'LISTED', 'TWEETS']
 
 		return
 
@@ -221,17 +221,8 @@ class ExemptHandler(object):
 	def get_whitelist(self):
 		service = self.service
 		values = self.get_category_users('whitelist')
-		whitelist = []
 
-		for value in values:
-			if value == []:
-				continue
-			whitelist.append(value[0])
-
-		if not values:
-			return False
-		else:
-			return whitelist
+		return values
 
 	# -----------  Get screen_names from specific category  -----------
 	def get_category_users(self, category):
@@ -244,10 +235,17 @@ class ExemptHandler(object):
 		).execute()
 		values = result.get('values', [])
 
+		cat_users = []
+
+		for value in values:
+			if value == []:
+				continue
+			cat_users.append(value[0])
+
 		if not values:
 			return False
 		else:
-			return values
+			return cat_users
 
 	# -----------  Get next Twitter API cursor -----------
 	def get_next_cursor(self):
@@ -308,13 +306,13 @@ class ExemptHandler(object):
 	def remove_user_from_category(self, category, screen_name):
 		service = self.service
 
-		category_sheet = self.get_category_users(category)
-		if screen_name in category_sheet:
-			rows_to_remove = category_sheet.count(screen_name)
+		category_users = self.get_category_users(category)
+		if category_users and screen_name in category_users:
+			rows_to_remove = category_users.count(screen_name)
 			for x in range(rows_to_remove):
-				row_index = category_sheet.index(screen_name)
+				row_index = category_users.index(screen_name)
 				self.remove_row_from_category_spreadsheet(category, row_index+2)
-				print(STARTC+"Removed "+screen_name+"from "+category)
+				print(STARTC+"Removed "+screen_name+"from "+category+ENDC)
 
 		return True
 
@@ -323,7 +321,7 @@ class ExemptHandler(object):
 		service = self.service
 		client = self.client
 
-		sheet = client.open("Twitter mentions").sheet1
+		sheet = client.open("Twitter mentions").worksheet(category.upper())
 		print(sheet.row_values(row_index))
 		deleted = sheet.delete_row(row_index)
 
@@ -511,7 +509,7 @@ class Tweeder(object):
 	def remove_unfollowers_from_categories(self, source_screen_name):
 		tw = self.tw
 		sheet = self.sheet
-		categories = sheet.categories
+		categories = list(sheet.categories)
 		whitelist = sheet.get_whitelist()
 
 		max_requests = 150
@@ -541,7 +539,7 @@ class Tweeder(object):
 			sleepy = random.randrange(1, 4) * 2
 			_x = sleepy
 			for _ in range(sleepy+1):
-				print('\r0{0}\r'.format(_x), end='', flush=True)
+				print('\r0{0} '.format(_x)+screen_name+'\r', end='', flush=True)
 				_x -= 1
 				time.sleep(1)
 
