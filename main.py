@@ -247,10 +247,10 @@ class ExemptHandler(object):
 		else:
 			return cat_users
 
-	# -----------  Get next Twitter API cursor -----------
-	def get_next_cursor(self):
+	# -----------  Get single cell value  -----------
+	def get_cell_value(self, category, range):
 		service = self.service
-		RANGE_NAME = 'CURSOR!A2'
+		RANGE_NAME = category.upper()+'!'+range
 
 		result = service.spreadsheets().values().get(
 			spreadsheetId=SPREADSHEET_ID,
@@ -262,6 +262,16 @@ class ExemptHandler(object):
 			return False
 		else:
 			return values[0][0]
+
+	# -----------  Get next Twitter API cursor -----------
+	def get_next_cursor(self):
+
+		return self.get_cell_value('cursor', 'A2')
+
+	# -----------  Get cleanup_cursor  -----------
+	def get_cleanup_cursor(self):
+
+		return self.get_cell_value('cursor', 'A3')
 
 	# -----------  Overwrite cell in spreadsheet  -----------
 	def overwrite_cell(self, value, category, range):
@@ -523,8 +533,13 @@ class Tweeder(object):
 	def remove_unfollowers_from_categories(self, source_screen_name):
 		tw = self.tw
 		sheet = self.sheet
-		categories = list(sheet.categories)
+
+		categories = sheet.categories
 		whitelist = sheet.get_whitelist()
+		cleanup_cursor = whitelist.index(sheet.get_cleanup_cursor())
+
+		if cleanup_cursor:
+			whitelist = whitelist[cleanup_cursor:]
 
 		max_requests = 150
 		for screen_name in whitelist:
