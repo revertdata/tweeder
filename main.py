@@ -263,13 +263,13 @@ class ExemptHandler(object):
 		else:
 			return values[0][0]
 
-	# -----------  Replace next twitter API cursor  -----------
-	def overwrite_next_cursor(self, next_cursor):
+	# -----------  Overwrite cell in spreadsheet  -----------
+	def overwrite_cell(self, value, category, range):
 		service = self.service
 		client = self.client
 
-		resource = {"values": [[next_cursor]]}
-		CAT_RANGE = "CURSOR!A2";
+		resource = {"values": [[value]]}
+		CAT_RANGE = category.upper()+"!"+range;
 
 		# delete old cursor
 		service.spreadsheets().values().clear(
@@ -286,6 +286,16 @@ class ExemptHandler(object):
 		).execute()
 
 		return
+
+	# -----------  Replace next twitter API cursor  -----------
+	def overwrite_next_cursor(self, next_cursor):
+
+		return self.overwrite_cell(next_cursor, 'cursor', 'A2')
+
+	# -----------  Replace next whitelist cleanup cursor  -----------
+	def overwrite_cleanup_cursor(self, screen_name):
+
+		return self.overwrite_cell(screen_name, 'cursor', 'A3')
 
 	# -----------  Add User to Category Spreadsheet  -----------
 	def add_users_to_category(self, category, screen_names):
@@ -305,6 +315,7 @@ class ExemptHandler(object):
 	# -----------  Remove User from Category Spreadsheet  -----------
 	def remove_user_from_category(self, category, screen_name):
 		service = self.service
+		removed = False
 
 		category_users = self.get_category_users(category)
 		if category_users and screen_name in category_users:
@@ -312,7 +323,10 @@ class ExemptHandler(object):
 			for x in range(rows_to_remove):
 				row_index = category_users.index(screen_name)
 				self.remove_row_from_category_spreadsheet(category, row_index+2)
-				print(STARTC+"Removed "+screen_name+"from "+category+ENDC)
+				removed = True
+
+		if removed:
+			print(STARTC+"Removed "+screen_name+"from "+category+ENDC)
 
 		return True
 
@@ -536,6 +550,8 @@ class Tweeder(object):
 				print(ENDC)
 				print("-----------")
 				continue
+
+			sheet.overwrite_cleanup_cursor(screen_name)
 			sleepy = random.randrange(1, 4) * 2
 			_x = sleepy
 			for _ in range(sleepy+1):
