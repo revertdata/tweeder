@@ -331,12 +331,13 @@ class ExemptHandler(object):
 		if category_users and screen_name in category_users:
 			rows_to_remove = category_users.count(screen_name)
 			for x in range(rows_to_remove):
+				category_users = self.get_category_users(category)
 				row_index = category_users.index(screen_name)
 				self.remove_row_from_category_spreadsheet(category, row_index+2)
 				removed = True
 
 		if removed:
-			print(STARTC+"Removed "+screen_name+"from "+category+ENDC)
+			print(STARTC+"Removed "+screen_name+" from "+category+ENDC)
 
 		return True
 
@@ -554,7 +555,7 @@ class Tweeder(object):
 						sheet.remove_user_from_category(category, screen_name)
 
 				if max_requests <= 0:
-					input('MAX_REQUESTS Limit reached.  Please wait 15 minutes to try again ('+datetime.now() + relativedelta(minutes=15)+').  Type any key to acknowledge and continue.')
+					input('MAX_REQUESTS Limit reached.  Please wait 15 minutes to try again ('+str(datetime.now()+relativedelta(minutes=15))+').  Type any key to acknowledge and continue.')
 					return False
 			except Exception as e:
 				print()
@@ -564,7 +565,7 @@ class Tweeder(object):
 				print(e)
 				print(ENDC)
 				print("-----------")
-				continue
+				return False
 
 			sheet.overwrite_cleanup_cursor(screen_name)
 			sleepy = random.randrange(1, 4) * 2
