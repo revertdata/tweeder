@@ -537,10 +537,13 @@ class Tweeder(object):
 
 		categories = sheet.categories
 		whitelist = sheet.get_whitelist()
-		cleanup_cursor = whitelist.index(sheet.get_cleanup_cursor())
+		cleanup_cursor = sheet.get_cleanup_cursor()
 
-		if cleanup_cursor:
-			whitelist = whitelist[cleanup_cursor:]
+		if cleanup_cursor in whitelist:
+			whitelist = whitelist[whitelist.index(cleanup_cursor):]
+		elif cleanup_cursor != False:
+			start_at_letter = [i for i in whitelist if i.startswith(cleanup_cursor[0][0])][0]
+			whitelist = whitelist[whitelist.index(start_at_letter):]
 
 		max_requests = 150
 		for screen_name in whitelist:
@@ -570,7 +573,7 @@ class Tweeder(object):
 				print(e)
 				print(ENDC)
 				print("-----------")
-				return False
+				continue
 
 			sheet.overwrite_cleanup_cursor(screen_name)
 			sleepy = random.randrange(1, 4) * 2
@@ -579,7 +582,6 @@ class Tweeder(object):
 				print('\r0{0} '.format(_x)+screen_name+'\r', end='', flush=True)
 				_x -= 1
 				time.sleep(1)
-
 
 # ======================================
 # =           Helper Options           =
