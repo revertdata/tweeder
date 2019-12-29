@@ -553,9 +553,15 @@ class Tweeder(object):
 				max_requests -= 1
 
 				if friendship["relationship"]["target"]["following"] == False:
-					print(STARTC + screen_name + " is not following. "+ENDC)
+					print(STARTC + screen_name + " is not following." + ENDC)
 					for category in categories:
 						sheet.remove_user_from_category(category, screen_name)
+				elif friendship["relationship"]["target"]["followed_by"] == False:
+					print(STARTC + screen_name + " is a new Reply Guy!" + ENDC)
+					tw.t.friendships.create(screen_name=screen_name, follow=False)
+					tw.t.friendships.update(screen_name=screen_name, retweets=False)
+				else:
+					tw.t.friendships.update(screen_name=screen_name, retweets=False)
 
 				if max_requests <= 0:
 					print('MAX_REQUESTS Limit reached.  Please wait 15 minutes to try again ('+str(datetime.now()+relativedelta(minutes=15))+').')
