@@ -44,9 +44,9 @@ class AccountHandler(object):
 		self.friends = []
 
 	# -----------  Get Recent Tweets -----------
-	def get_recent_tweets(self, screen_name):
+	def get_recent_tweets(self, uscreen_name):
 		t = self.t
-		feed = t.statuses.user_timeline(screen_name=screen_name, count=200, exclude_replies=True, trim_user=True)
+		feed = t.statuses.user_timeline(screen_name=uscreen_name, count=200, exclude_replies=True, trim_user=True)
 
 		self.feed = feed
 		return feed
@@ -60,9 +60,9 @@ class AccountHandler(object):
 		return friends
 
 	# -----------  Get Twitter Lists  -----------
-	def get_twitter_lists(self, screen_name):
+	def get_twitter_lists(self, uscreen_name):
 		t = self.t
-		owned_lists = t.lists.ownerships(count=25, screen_name=screen_name)["lists"]
+		owned_lists = t.lists.ownerships(count=25, screen_name=uscreen_name)["lists"]
 
 		return owned_lists
 
@@ -160,9 +160,9 @@ class AccountHandler(object):
 		return True
 
 	# -----------  Unfollow users on Twitter  -----------
-	def unfollow_twitter_user(self, screen_name):
+	def unfollow_twitter_user(self, uscreen_name):
 		t = self.t
-		t.friendships.destroy(screen_name=screen_name)
+		t.friendships.destroy(screen_name=uscreen_name)
 
 		return True
 
@@ -303,9 +303,9 @@ class ExemptHandler(object):
 		return self.overwrite_cell(next_cursor, 'cursor', 'A2')
 
 	# -----------  Replace next whitelist cleanup cursor  -----------
-	def overwrite_cleanup_cursor(self, screen_name):
+	def overwrite_cleanup_cursor(self, uscreen_name):
 
-		return self.overwrite_cell(screen_name, 'cursor', 'A3')
+		return self.overwrite_cell(uscreen_name, 'cursor', 'A3')
 
 	# -----------  Add User to Category Spreadsheet  -----------
 	def add_users_to_category(self, category, screen_names):
@@ -323,21 +323,21 @@ class ExemptHandler(object):
 		return
 
 	# -----------  Remove User from Category Spreadsheet  -----------
-	def remove_user_from_category(self, category, screen_name):
+	def remove_user_from_category(self, category, uscreen_name):
 		service = self.service
 		removed = False
 
 		category_users = self.get_category_users(category)
-		if category_users and screen_name in category_users:
-			rows_to_remove = category_users.count(screen_name)
+		if category_users and uscreen_name in category_users:
+			rows_to_remove = category_users.count(uscreen_name)
 			for x in range(rows_to_remove):
 				category_users = self.get_category_users(category)
-				row_index = category_users.index(screen_name)
+				row_index = category_users.index(uscreen_name)
 				self.remove_row_from_category_spreadsheet(category, row_index+2)
 				removed = True
 
 		if removed:
-			print(STARTC+"Removed "+screen_name+" from "+category+ENDC)
+			print(STARTC+"Removed "+uscreen_name+" from "+category+ENDC)
 
 		return True
 
@@ -414,7 +414,8 @@ class Tweeder(object):
 					sleepy = random.randrange(1, 4) * 2
 					_x = sleepy
 					for _ in range(sleepy+1):
-						print('\r0{0}\r'.format(_x), end='', flush=True)
+						print('\r', end='')
+						print('\r0{0} {1}'.format(_x, uscreen_name)+'\r', end='', flush=True)
 						_x -= 1
 						time.sleep(1)
 
@@ -462,7 +463,8 @@ class Tweeder(object):
 				sleepy = random.randrange(1, 4) * 2
 				_x = sleepy
 				for _ in range(sleepy+1):
-					print('\r0{0}{1}\r'.format(uscreen_name, _x), end='', flush=True)
+					print('\r', end='')
+					print('\r0{0} {1}'.format(_x, uscreen_name)+'\r', end='', flush=True)
 					_x -= 1
 					time.sleep(1)
 
@@ -476,10 +478,10 @@ class Tweeder(object):
 			print(screen_name)
 
 	# -----------  Check if user is in whitelist  -----------
-	def user_is_whitelisted(self, screen_name):
+	def user_is_whitelisted(self, uscreen_name):
 		sheet = self.sheet
 
-		if screen_name in sheet.whitelist:
+		if uscreen_name in sheet.whitelist:
 			return True
 		return False
 
@@ -495,20 +497,20 @@ class Tweeder(object):
 
 		whitelisted = 0
 		for friend in friends['users']:
-			screen_name = friend['screen_name'].lower()
+			uscreen_name = friend['screen_name'].lower()
 			try:
-				if self.user_is_whitelisted(screen_name):
-					print(STARTC + screen_name + ' is whitelisted.' + ENDC)
+				if self.user_is_whitelisted(uscreen_name):
+					print(STARTC + uscreen_name + ' is whitelisted.' + ENDC)
 					whitelisted += 1
 					continue
 				else:
 					newly_whitelisted = self.add_tw_user_to_sheet_category(friend)
 					if newly_whitelisted:
-						print(STARTC + screen_name + ' is newly whitelisted.' + ENDC)
+						print(STARTC + uscreen_name + ' is newly whitelisted.' + ENDC)
 						continue
 					else:
-						unfollowed = tw.unfollow_twitter_user(screen_name)
-						print('Unfollowed ' + screen_name)
+						unfollowed = tw.unfollow_twitter_user(uscreen_name)
+						print('Unfollowed ' + uscreen_name)
 
 			except Exception as e:
 				print()
@@ -522,7 +524,8 @@ class Tweeder(object):
 			sleepy = random.randrange(1, 4) * 2
 			_x = sleepy
 			for _ in range(sleepy+1):
-				print('\r0{0}\r'.format(_x), end='', flush=True)
+				print('\r', end='')
+				print('\r0{0} {1}'.format(_x, uscreen_name)+'\r', end='', flush=True)
 				_x -= 1
 				time.sleep(1)
 
@@ -547,28 +550,29 @@ class Tweeder(object):
 
 		max_requests = 150
 		for screen_name in whitelist:
-			screen_name = screen_name.strip().lower()
+			uscreen_name = screen_name.strip().lower()
 			try:
-				friendship = tw.t.friendships.show(source_screen_name=source_screen_name, target_screen_name=screen_name)
+				friendship = tw.t.friendships.show(source_screen_name=source_screen_name, target_screen_name=uscreen_name)
 				max_requests -= 1
 
 				if friendship["relationship"]["target"]["following"] == False:
-					print(STARTC + screen_name + " is not following." + ENDC)
+					print(STARTC + uscreen_name + " is not following." + ENDC)
 					for category in categories:
-						sheet.remove_user_from_category(category, screen_name)
+						sheet.remove_user_from_category(category, uscreen_name)
 				elif friendship["relationship"]["target"]["followed_by"] == False:
-					print(STARTC + screen_name + " is a new Reply Guy!" + ENDC)
-					tw.t.friendships.create(screen_name=screen_name, follow=False)
-					tw.t.friendships.update(screen_name=screen_name, retweets=False)
+					print(STARTC + uscreen_name + " is a new Reply Guy!" + ENDC)
+					tw.t.friendships.create(screen_name=uscreen_name, follow=False)
+					tw.t.friendships.update(screen_name=uscreen_name, retweets=False)
 				else:
-					tw.t.friendships.update(screen_name=screen_name, retweets=False)
+					tw.t.friendships.update(screen_name=uscreen_name, retweets=False)
 
 				if max_requests <= 0:
 					print('MAX_REQUESTS Limit reached.  Please wait 15 minutes to try again ('+str(datetime.now()+relativedelta(minutes=15))+').')
 					sleepy = 900 # 15 minutes
 					_x = sleepy
 					for _ in range(sleepy+1):
-						print('\r0{0} '.format(_x)+screen_name+'\r', end='', flush=True)
+						print('\r', end='')
+						print('\r0{0} {1}'.format(_x, uscreen_name)+'\r', end='', flush=True)
 						_x -= 1
 						time.sleep(1)
 			except Exception as e:
@@ -581,11 +585,12 @@ class Tweeder(object):
 				print("-----------")
 				continue
 
-			sheet.overwrite_cleanup_cursor(screen_name)
+			sheet.overwrite_cleanup_cursor(uscreen_name)
 			sleepy = random.randrange(1, 4) * 2
 			_x = sleepy
 			for _ in range(sleepy+1):
-				print('\r0{0} '.format(_x)+screen_name+'\r', end='', flush=True)
+				print('\r', end='')
+				print('\r0{0} {1}'.format(_x, uscreen_name)+'\r', end='', flush=True)
 				_x -= 1
 				time.sleep(1)
 
