@@ -355,7 +355,7 @@ class ExemptHandler(object):
 	# -----------  Delete old dates from MENTIONS Spreadsheet  -----------
 	def remove_old_mentions(self):
 		service = self.service
-		MENTIONS_DATE_COL = "MENTIONS!D2:D"
+		MENTIONS_DATE_COL = "MENTIONS!C2:C"
 
 		result = service.spreadsheets().values().get(
 			spreadsheetId=SPREADSHEET_ID,
@@ -537,9 +537,10 @@ class Tweeder(object):
 
 		categories = sheet.categories
 		whitelist = sheet.get_whitelist()
-		cleanup_cursor = sheet.get_cleanup_cursor().lower()
+		cleanup_cursor = sheet.get_cleanup_cursor()
 
 		if cleanup_cursor in whitelist:
+			cleanup_cursor = cleanup_cursor.lower()
 			whitelist = whitelist[whitelist.index(cleanup_cursor):]
 		elif cleanup_cursor != False:
 			start_at_letter = [i for i in whitelist if i.startswith(cleanup_cursor[0][0])][0]
