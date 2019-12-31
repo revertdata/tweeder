@@ -414,8 +414,7 @@ class Tweeder(object):
 					sleepy = random.randrange(1, 4) * 2
 					_x = sleepy
 					for _ in range(sleepy+1):
-						print('\r', end='')
-						print('\r0{0} {1}'.format(_x, uscreen_name)+'\r', end='', flush=True)
+						print('\r0{0} {1}'.format(_x, uscreen_name).ljust(30)+'\r', end='', flush=True)
 						_x -= 1
 						time.sleep(1)
 
@@ -463,8 +462,7 @@ class Tweeder(object):
 				sleepy = random.randrange(1, 4) * 2
 				_x = sleepy
 				for _ in range(sleepy+1):
-					print('\r', end='')
-					print('\r0{0} {1}'.format(_x, uscreen_name)+'\r', end='', flush=True)
+					print('\r0{0} {1}'.format(_x, uscreen_name).ljust(30)+'\r', end='', flush=True)
 					_x -= 1
 					time.sleep(1)
 
@@ -524,8 +522,7 @@ class Tweeder(object):
 			sleepy = random.randrange(1, 4) * 2
 			_x = sleepy
 			for _ in range(sleepy+1):
-				print('\r', end='')
-				print('\r0{0} {1}'.format(_x, uscreen_name)+'\r', end='', flush=True)
+				print('\r0{0} {1}'.format(_x, uscreen_name).ljust(30)+'\r', end='', flush=True)
 				_x -= 1
 				time.sleep(1)
 
@@ -540,7 +537,7 @@ class Tweeder(object):
 
 		categories = sheet.categories
 		whitelist = sheet.get_whitelist()
-		cleanup_cursor = sheet.get_cleanup_cursor()
+		cleanup_cursor = sheet.get_cleanup_cursor().lower()
 
 		if cleanup_cursor in whitelist:
 			whitelist = whitelist[whitelist.index(cleanup_cursor):]
@@ -571,8 +568,7 @@ class Tweeder(object):
 					sleepy = 900 # 15 minutes
 					_x = sleepy
 					for _ in range(sleepy+1):
-						print('\r', end='')
-						print('\r0{0} {1}'.format(_x, uscreen_name)+'\r', end='', flush=True)
+						print('\r0{0} {1}'.format(_x, uscreen_name).ljust(30)+'\r', end='', flush=True)
 						_x -= 1
 						time.sleep(1)
 			except Exception as e:
@@ -589,8 +585,7 @@ class Tweeder(object):
 			sleepy = random.randrange(1, 4) * 2
 			_x = sleepy
 			for _ in range(sleepy+1):
-				print('\r', end='')
-				print('\r0{0} {1}'.format(_x, uscreen_name)+'\r', end='', flush=True)
+				print('\r0{0} {1}'.format(_x, uscreen_name).ljust(30)+'\r', end='', flush=True)
 				_x -= 1
 				time.sleep(1)
 
