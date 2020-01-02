@@ -526,9 +526,12 @@ class Tweeder(object):
 				_x -= 1
 				time.sleep(1)
 
-		if whitelisted == 200:
-			sheet.overwrite_next_cursor(friends['next_cursor'])
-			print("Everyone in this batch has been whitelisted. NEXT CURSOR overwritten.")
+		if whitelisted == len(friends['users']):
+			next_cursor = friends['next_cursor']
+			if (friends['next_cursor'] == 0):
+				next_cursor = -1
+			sheet.overwrite_next_cursor(next_cursor)
+			print("Everyone in this batch has been whitelisted. NEXT CURSOR overwritten: "+str(next_cursor))
 
 	# -----------  Remove users from categories if not following  -----------
 	def remove_unfollowers_from_categories(self, source_screen_name):
@@ -565,8 +568,8 @@ class Tweeder(object):
 					tw.t.friendships.update(screen_name=uscreen_name, retweets=False)
 
 				if max_requests <= 0:
-					print('MAX_REQUESTS Limit reached.  Please wait 15 minutes to try again ('+str(datetime.now()+relativedelta(minutes=15))+').')
-					sleepy = 900 # 15 minutes
+					print('MAX_REQUESTS Limit reached.  Please wait 5 minutes to try again ('+str(datetime.now()+relativedelta(minutes=15))+').')
+					sleepy = 300 # 5 minutes
 					_x = sleepy
 					for _ in range(sleepy+1):
 						print('\r0{0} {1}'.format(_x, uscreen_name).ljust(30)+'\r', end='', flush=True)
@@ -589,6 +592,22 @@ class Tweeder(object):
 				print('\r0{0} {1}'.format(_x, uscreen_name).ljust(30)+'\r', end='', flush=True)
 				_x -= 1
 				time.sleep(1)
+
+	# -----------  Daily Tasks  -----------
+	def dailies(self):
+		tw = self.tw
+		sheet = self.sheet
+
+		# Reset CURSORs
+		sheet.overwrite_next_cursor('-1')
+		sheet.overwrite_cleanup_cursor('')
+
+		# Remove old mentions
+		sheet.remove_old_mentions()
+
+		# Unfollow inactive users
+		self.unfollow_inactive_users()
+
 
 # ======================================
 # =           Helper Options           =
@@ -620,8 +639,7 @@ def menu():
 
 	for opt in opts:
 		if opt == user_options[0]:
-			tweeder.sheet.remove_old_mentions()
-			tweeder.unfollow_inactive_users()
+			tweeder.dailies()
 		elif opt == user_options[1]:
 			tweeder.tw.delete_archived_tweets()
 		elif opt == user_options[2]:
