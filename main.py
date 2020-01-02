@@ -571,6 +571,7 @@ class Tweeder(object):
 					print('MAX_REQUESTS Limit reached.  Please wait 5 minutes to try again ('+str(datetime.now()+relativedelta(minutes=15))+').')
 					sleepy = 300 # 5 minutes
 					_x = sleepy
+					max_requests = 150
 					for _ in range(sleepy+1):
 						print('\r0{0} {1}'.format(_x, uscreen_name).ljust(30)+'\r', end='', flush=True)
 						_x -= 1
