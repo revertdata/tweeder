@@ -607,7 +607,7 @@ class Tweeder(object):
 		sheet.remove_old_mentions()
 
 		# Unfollow inactive users
-		self.unfollow_inactive_users()
+		self.remove_unfollowers_from_categories('telepathics')
 
 
 # ======================================
