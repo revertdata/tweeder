@@ -638,6 +638,9 @@ def menu():
 	tweeder = Tweeder(_tw, _sheet)
 	# ===== CONNECTION COMPLETE =====
 
+	if opts == False:
+		return opts
+
 	for opt in opts:
 		if opt == user_options[0]:
 			tweeder.dailies()
@@ -659,9 +662,11 @@ def menu():
 		elif opt == user_options[8]:
 			tweeder.sheet.overwrite_next_cursor('-1')
 			tweeder.sheet.overwrite_cleanup_cursor('')
+		else:
+			return True
 
 	answ = input("Would you like to do more? (Y/N) ")
-	if answ.lower() in ('n', 'no', 'exit', 'quit', 'q'):
+	if answ.lower() in ('no', 'n', 'exit', 'e', 'quit', 'q'):
 		return False
 
 	return True
