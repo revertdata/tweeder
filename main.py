@@ -93,6 +93,7 @@ class AccountHandler(object):
 		with open('tweet.json', 'r') as tweets:
 			tweetlist = json.load(tweets)
 			for tweet in tweetlist:
+				tweet = tweet["tweet"]
 				try:
 					created_at = datetime.strptime(tweet["created_at"],"%a %b %d %H:%M:%S %z %Y")
 					old_enough = created_at.replace(tzinfo=utc) < past_time.replace(tzinfo=utc)
@@ -250,7 +251,7 @@ class ExemptHandler(object):
 	# -----------  Get single cell value  -----------
 	def get_cell_value(self, category, range):
 		service = self.service
-		RANGE_NAME = category.upper()+'!'+range
+		RANGE_NAME = category.upper()+'!'+str(range)
 
 		result = service.spreadsheets().values().get(
 			spreadsheetId=SPREADSHEET_ID,
@@ -366,15 +367,19 @@ class ExemptHandler(object):
 		if not values:
 			return False
 		else:
+			screen_names = []
 			past_time = datetime.now() - relativedelta(months=6)
 			print('Deleting mentions older than ' + str(past_time.replace(tzinfo=utc)) + '...')
 			row_index = 2 # row_index is offset by 2 in Google Sheets
 			for datecol in values:
 				if datetime.strptime(datecol[0],"%m/%d/%Y").replace(tzinfo=utc) < past_time.replace(tzinfo=utc):
+					screen_names.append(self.get_cell_value('mentions', 'A'+str(row_index)))
 					self.remove_row_from_category_spreadsheet('mentions', row_index)
 				else:
 					# only increase the row_index if you didn't delete a row
 					row_index += 1
+
+			return screen_names
 
 		return True
 
@@ -530,7 +535,7 @@ class Tweeder(object):
 		newly_whitelisted = self.add_tw_user_to_sheet_category(uscreen_name)
 		if newly_whitelisted:
 			print(STARTC + uscreen_name + ' is newly whitelisted.' + ENDC)
-			continue
+			return False
 		else:
 			unfollowed = tw.unfollow_twitter_user(uscreen_name)
 			print('Unfollowed ' + uscreen_name)
@@ -608,7 +613,12 @@ class Tweeder(object):
 		sheet.overwrite_cleanup_cursor('')
 
 		# Remove old mentions
-		sheet.remove_old_mentions()
+		removed_users = list(set(sheet.remove_old_mentions()))
+		for screen_name in removed_users:
+			uscreen_name = screen_name.lower()
+			if not self.user_is_whitelisted(uscreen_name):
+				print(STARTC + uscreen_name + ' has not tweeted at you in 6 months.' + ENDC)
+				_unfollowed = self.unfollow_after_newly_whitelisted_check(uscreen_name)
 
 		# Unfollow inactive users
 		self.remove_unfollowers_from_categories('telepathics')
