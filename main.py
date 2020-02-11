@@ -429,11 +429,9 @@ class Tweeder(object):
 		return True
 
 	# -----------  Add user to category based off twitter information  -----------
-	def add_tw_user_to_sheet_category(self, user):
+	def add_tw_user_to_sheet_category(self, uscreen_name):
 		tw = self.tw
 		sheet = self.sheet
-
-		uscreen_name = user["screen_name"].lower()
 
 		# Verified users (I know, I know)
 		if user["verified"] == True:
@@ -502,13 +500,7 @@ class Tweeder(object):
 					whitelisted += 1
 					continue
 				else:
-					newly_whitelisted = self.add_tw_user_to_sheet_category(friend)
-					if newly_whitelisted:
-						print(STARTC + uscreen_name + ' is newly whitelisted.' + ENDC)
-						continue
-					else:
-						unfollowed = tw.unfollow_twitter_user(uscreen_name)
-						print('Unfollowed ' + uscreen_name)
+					self.unfollow_after_newly_whitelisted_check(uscreen_name)
 
 			except Exception as e:
 				print()
@@ -532,6 +524,18 @@ class Tweeder(object):
 				next_cursor = -1
 			sheet.overwrite_next_cursor(next_cursor)
 			print("Everyone in this batch has been whitelisted. NEXT CURSOR overwritten: "+str(next_cursor))
+
+	# -----------  Check if user is "newly whitelisted", determine unfollow  -----------
+	def unfollow_after_newly_whitelisted_check(self, uscreen_name):
+		newly_whitelisted = self.add_tw_user_to_sheet_category(uscreen_name)
+		if newly_whitelisted:
+			print(STARTC + uscreen_name + ' is newly whitelisted.' + ENDC)
+			continue
+		else:
+			unfollowed = tw.unfollow_twitter_user(uscreen_name)
+			print('Unfollowed ' + uscreen_name)
+
+		return True
 
 	# -----------  Remove users from categories if not following  -----------
 	def remove_unfollowers_from_categories(self, source_screen_name):
