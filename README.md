@@ -42,7 +42,7 @@ Use the following line to format each row:
 **Some issues I've found so far include:**
 
 * If you get an influx of tweets at once, it may skip some additions.  For example, [for this tweet](https://twitter.com/telepathics/status/1208839624422051846), a handful of people were not added, and were unfollowed as a result.
-* It *might* create a new spreadsheet after 2,000 rows.  I haven't gotten to this point yet, since Tweeder removes mentions prior to the last 6 months, but IFTTT warns you about it when you create the applet.
+* It creates a new spreadsheet after ~2,000 rows. Temporary combats include 1.) deleting rows older than 6 months old, and 2.) deleting old mentions by the same user, keeping only their most recent reply.
 
 ## 3. Customize your Google Sheets
 
