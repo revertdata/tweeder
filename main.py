@@ -383,6 +383,43 @@ class ExemptHandler(object):
 
 		return True
 
+	# -----------  Delete old mentions from users who appear multiple times  -----------
+	def remove_old_duplicate_mentions(self):
+		service = self.service
+		MENTIONS_USCREEN_COL = "MENTIONS!A2:A"
+
+		result = service.spreadsheets().values().get(
+			spreadsheetId=SPREADSHEET_ID,
+			range=MENTIONS_USCREEN_COL
+		).execute()
+		values = result.get('values', [])
+
+		if not values:
+			return False
+		else:
+			screen_names = []
+			row_index = 2 # row_index is offset by 2 in Google Sheets
+			for index, uscreen_name in enumerate(values):
+				# sleepy first to display the deletion after username
+				sleepy = random.randrange(1, 4) * 2
+				_x = sleepy
+				for _ in range(sleepy+1):
+					print('\r0{0} {1}'.format(_x, uscreen_name[0]).ljust(30)+'\r', end='', flush=True)
+					_x -= 1
+					time.sleep(1)
+
+				if values[index+1:].count(uscreen_name) > 0:
+					screen_names.append(self.get_cell_value('mentions', 'A'+str(row_index)))
+					self.remove_row_from_category_spreadsheet('mentions', row_index)
+
+				else:
+					# only increase the row_index if you didn't delete a row
+					row_index += 1
+
+			return screen_names
+
+		return True
+
 # =========================================
 # =           Tweeder Functions           =
 # =========================================
@@ -623,7 +660,6 @@ class Tweeder(object):
 		# Unfollow inactive users
 		self.remove_unfollowers_from_categories('telepathics')
 
-
 # ======================================
 # =           Helper Options           =
 # ======================================
@@ -638,7 +674,8 @@ def menu():
 		"Add listed users to whitelist",
 		"Remove mentions > 6 months",
 		"Clean category users",
-		"Reset CURSORs"
+		"Reset CURSORs",
+		"Remove duplicate mentions"
 	]
 
 	opts = Picker(
@@ -676,6 +713,9 @@ def menu():
 		elif opt == user_options[8]:
 			tweeder.sheet.overwrite_next_cursor('-1')
 			tweeder.sheet.overwrite_cleanup_cursor('')
+		elif opt == user_options[9]:
+			removed_users = tweeder.sheet.remove_old_duplicate_mentions()
+			print(removed_users)
 		else:
 			return True
 
