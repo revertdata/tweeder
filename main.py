@@ -198,7 +198,7 @@ class AccountHandler(object):
 
 class ExemptHandler(object):
 	def __init__(self):
-		self.service, self.client = self.g_auth()
+		self.service, self.client, self.sheet = self.g_auth()
 		self.whitelist = self.get_whitelist()
 		self.categories = ['MENTIONS', 'FAVORITED', 'RETWEETED', 'VERIFIED', 'NOTIFICATIONS', 'LISTED', 'TWEETS']
 
@@ -215,8 +215,9 @@ class ExemptHandler(object):
 
 		gcreds = ServiceAccountCredentials.from_json_keyfile_name('service_credentials.json', GSPREAD_SCOPES)
 		client = gspread.authorize(gcreds)
+		sheet = client.open("Twitter mentions")
 
-		return service, client
+		return service, client, sheet
 
 	# -----------  Get Whitelist  -----------
 	def get_whitelist(self):
@@ -347,9 +348,9 @@ class ExemptHandler(object):
 		service = self.service
 		client = self.client
 
-		sheet = client.open("Twitter mentions").worksheet(category.upper())
-		print(sheet.row_values(row_index))
-		deleted = sheet.delete_row(row_index)
+		spreadsheet = self.sheet.worksheet(category.upper())
+		print(spreadsheet.row_values(row_index))
+		deleted = spreadsheet.delete_row(row_index)
 
 		return deleted
 
@@ -398,23 +399,26 @@ class ExemptHandler(object):
 			return False
 		else:
 			screen_names = []
+			max_requests = 99 # sheets api: 100 requests/100 seconds/1 user
 			row_index = 2 # row_index is offset by 2 in Google Sheets
 			for index, uscreen_name in enumerate(values):
-				# sleepy first to display the deletion after username
-				sleepy = random.randrange(1, 4) * 2
-				_x = sleepy
-				for _ in range(sleepy+1):
-					print('\r0{0} {1}'.format(_x, uscreen_name[0]).ljust(30)+'\r', end='', flush=True)
-					_x -= 1
-					time.sleep(1)
-
+				max_requests -= 1
 				if values[index+1:].count(uscreen_name) > 0:
 					screen_names.append(self.get_cell_value('mentions', 'A'+str(row_index)))
 					self.remove_row_from_category_spreadsheet('mentions', row_index)
-
 				else:
 					# only increase the row_index if you didn't delete a row
 					row_index += 1
+
+				if max_requests <= 0:
+					print('MAX_REQUESTS Limit reached.  Please wait 100 seconds to try again ('+str(datetime.now()+relativedelta(seconds=100))+').')
+					sleepy = 100
+					_x = sleepy
+					max_requests = 99
+					for _ in range(sleepy+1):
+						print('\r0{0} {1}'.format(_x, uscreen_name[0]).ljust(30)+'\r', end='', flush=True)
+						_x -= 1
+						time.sleep(1)
 
 			return screen_names
 
