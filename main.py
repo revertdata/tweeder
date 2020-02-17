@@ -275,6 +275,11 @@ class ExemptHandler(object):
 
 		return self.get_cell_value('cursor', 'A3')
 
+	# -----------  Get mentions_cursor  -----------
+	def get_mentions_cursor(self):
+
+		return self.get_cell_value('cursor', 'A4')
+
 	# -----------  Overwrite cell in spreadsheet  -----------
 	def overwrite_cell(self, value, category, range):
 		service = self.service
@@ -308,6 +313,11 @@ class ExemptHandler(object):
 	def overwrite_cleanup_cursor(self, uscreen_name):
 
 		return self.overwrite_cell(uscreen_name, 'cursor', 'A3')
+
+	# -----------  Replace next mention cursor  -----------
+	def overwrite_mentions_cursor(self, uscreen_name):
+
+		return self.overwrite_cell(uscreen_name, 'cursor', 'A4')
 
 	# -----------  Add User to Category Spreadsheet  -----------
 	def add_users_to_category(self, category, screen_names):
@@ -389,18 +399,19 @@ class ExemptHandler(object):
 		service = self.service
 		MENTIONS_USCREEN_COL = "MENTIONS!A2:A"
 
-		result = service.spreadsheets().values().get(
-			spreadsheetId=SPREADSHEET_ID,
-			range=MENTIONS_USCREEN_COL
-		).execute()
-		values = result.get('values', [])
+		values = self.get_category_users('mentions')
 
 		if not values:
 			return False
 		else:
-			screen_names = []
-			max_requests = 99 # sheets api: 100 requests/100 seconds/1 user
 			row_index = 2 # row_index is offset by 2 in Google Sheets
+			mentions_cursor = self.get_mentions_cursor()
+			if mentions_cursor in values:
+				row_index = values.index(mentions_cursor)+2
+				values = values[values.index(mentions_cursor):]
+
+			screen_names = []
+			max_requests = 90 # sheets api: 100 requests/100 seconds/1 user
 			for index, uscreen_name in enumerate(values):
 				max_requests -= 1
 				if values[index+1:].count(uscreen_name) > 0:
@@ -409,12 +420,14 @@ class ExemptHandler(object):
 				else:
 					# only increase the row_index if you didn't delete a row
 					row_index += 1
+					# only overwrite the mentions_cursor if mention was kept
+					self.overwrite_mentions_cursor(uscreen_name)
 
 				if max_requests <= 0:
-					print('MAX_REQUESTS Limit reached.  Please wait 100 seconds to try again ('+str(datetime.now()+relativedelta(seconds=100))+').')
-					sleepy = 100
+					print('MAX_REQUESTS Limit reached.  Please wait 5 minutes to try again ('+str(datetime.now()+relativedelta(seconds=100))+').')
+					sleepy = 300 # 5 minutes
 					_x = sleepy
-					max_requests = 99
+					max_requests = 90
 					for _ in range(sleepy+1):
 						print('\r0{0} {1}'.format(_x, uscreen_name[0]).ljust(30)+'\r', end='', flush=True)
 						_x -= 1
