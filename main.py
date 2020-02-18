@@ -354,12 +354,14 @@ class ExemptHandler(object):
 		return True
 
 	# -----------  Remove row from Category Spreadsheet  -----------
-	def remove_row_from_category_spreadsheet(self, category, row_index):
+	def remove_row_from_category_spreadsheet(self, category, row_index, printDeletion=True):
 		service = self.service
 		client = self.client
 
 		spreadsheet = self.sheet.worksheet(category.upper())
-		print(spreadsheet.row_values(row_index))
+		if printDeletion:
+			# only print on low-stress API calls
+			print(spreadsheet.row_values(row_index))
 		deleted = spreadsheet.delete_row(row_index)
 
 		return deleted
@@ -416,7 +418,7 @@ class ExemptHandler(object):
 				max_requests -= 1
 				if values[index+1:].count(uscreen_name) > 0:
 					screen_names.append(self.get_cell_value('mentions', 'A'+str(row_index)))
-					self.remove_row_from_category_spreadsheet('mentions', row_index)
+					self.remove_row_from_category_spreadsheet('mentions', row_index, False)
 				else:
 					# only increase the row_index if you didn't delete a row
 					row_index += 1
@@ -424,12 +426,12 @@ class ExemptHandler(object):
 					self.overwrite_mentions_cursor(uscreen_name)
 
 				if max_requests <= 0:
-					print('MAX_REQUESTS Limit reached.  Please wait 5 minutes to try again ('+str(datetime.now()+relativedelta(seconds=100))+').')
-					sleepy = 300 # 5 minutes
+					print('MAX_REQUESTS Limit reached.  Please wait 100 seconds to try again ('+str(datetime.now()+relativedelta(seconds=100))+').')
+					sleepy = 100 # 5 minutes
 					_x = sleepy
 					max_requests = 90
 					for _ in range(sleepy+1):
-						print('\r0{0} {1}'.format(_x, uscreen_name[0]).ljust(30)+'\r', end='', flush=True)
+						print('\r0{0} {1}'.format(_x, uscreen_name).ljust(30)+'\r', end='', flush=True)
 						_x -= 1
 						time.sleep(1)
 
@@ -613,6 +615,7 @@ class Tweeder(object):
 			whitelist = whitelist[whitelist.index(start_at_letter):]
 
 		max_requests = 150
+		error_users = []
 		for screen_name in whitelist:
 			uscreen_name = screen_name.strip().lower()
 			try:
@@ -640,13 +643,7 @@ class Tweeder(object):
 						_x -= 1
 						time.sleep(1)
 			except Exception as e:
-				print()
-				print("-----------")
-				print("ERROR in Tweeder.remove_unfollowers_from_categories:")
-				print(STARTC)
-				print(e)
-				print(ENDC)
-				print("-----------")
+				error_users.append(uscreen_name)
 				continue
 
 			sheet.overwrite_cleanup_cursor(uscreen_name)
@@ -656,6 +653,15 @@ class Tweeder(object):
 				print('\r0{0} {1}'.format(_x, uscreen_name).ljust(30)+'\r', end='', flush=True)
 				_x -= 1
 				time.sleep(1)
+
+		if (len(error_users) > 0):
+			print()
+			print("-----------")
+			print(STARTC)
+			print("Errors with the following users:")
+			print(*error_users, sep = ", ")
+			print(ENDC)
+			print("-----------")
 
 	# -----------  Daily Tasks  -----------
 	def dailies(self):
