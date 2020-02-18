@@ -15,8 +15,8 @@ For the last 5 years, I kept a 1:1 following ratio on Twitter.  I recently decid
 - [1. Request your Twitter archive](#1-request-your-twitter-archive)
 - [2. Set up IFTTT](#2-set-up-ifttt)
 - [3. Customize your Google Sheets](#3-customize-your-google-sheets)
-	- [Google Sheets Authentication](#google-sheets-authentication)
-	- [Gspread Authentication](#gspread-authentication)
+  - [Google Sheets Authentication](#google-sheets-authentication)
+  - [Gspread Authentication](#gspread-authentication)
 - [4. Create a Twitter Application](#4-create-a-twitter-application)
 
 <!-- /MarkdownTOC -->
@@ -36,7 +36,7 @@ I have an [IFTTT](https://ifttt.com/create) applet that runs whenever I receive 
 Use the following line to format each row:
 
 ```sql
-=LOWER("{{UserName}}") ||| {{LinkToTweet}} ||| =DATEVALUE(SUBSTITUTE("{{CreatedAt}}"," at "," "))
+=LOWER("{{UserName}}") ||| =LOWER("{{LinkToTweet}}") ||| =DATEVALUE(SUBSTITUTE("{{CreatedAt}}"," at "," "))
 ```
 
 **Some issues I've found so far include:**

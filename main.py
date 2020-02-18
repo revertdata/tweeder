@@ -736,6 +736,7 @@ def menu():
 		elif opt == user_options[8]:
 			tweeder.sheet.overwrite_next_cursor('-1')
 			tweeder.sheet.overwrite_cleanup_cursor('')
+			tweeder.sheet.overwrite_mentions_cursor('')
 		elif opt == user_options[9]:
 			removed_users = tweeder.sheet.remove_old_duplicate_mentions()
 			print(removed_users)
