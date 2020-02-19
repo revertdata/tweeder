@@ -275,8 +275,8 @@ class ExemptHandler(object):
 
 		return self.get_cell_value('cursor', 'A3')
 
-	# -----------  Get mentions_cursor  -----------
-	def get_mentions_cursor(self):
+	# -----------  Get duplicate_cursor  -----------
+	def get_duplicate_cursor(self):
 
 		return self.get_cell_value('cursor', 'A4')
 
@@ -315,7 +315,7 @@ class ExemptHandler(object):
 		return self.overwrite_cell(uscreen_name, 'cursor', 'A3')
 
 	# -----------  Replace next mention cursor  -----------
-	def overwrite_mentions_cursor(self, uscreen_name):
+	def overwrite_duplicate_cursor(self, uscreen_name):
 
 		return self.overwrite_cell(uscreen_name, 'cursor', 'A4')
 
@@ -397,33 +397,33 @@ class ExemptHandler(object):
 		return True
 
 	# -----------  Delete old mentions from users who appear multiple times  -----------
-	def remove_old_duplicate_mentions(self):
+	def remove_old_duplicate_category(self, category):
 		service = self.service
-		MENTIONS_USCREEN_COL = "MENTIONS!A2:A"
+		MENTIONS_USCREEN_COL = category.upper()+"!A2:A"
 
-		values = self.get_category_users('mentions')
+		values = self.get_category_users(category.lower())
 
 		if not values:
 			return False
 		else:
 			row_index = 2 # row_index is offset by 2 in Google Sheets
-			mentions_cursor = self.get_mentions_cursor()
-			if mentions_cursor in values:
-				row_index = values.index(mentions_cursor)+2
-				values = values[values.index(mentions_cursor):]
+			duplicate_cursor = self.get_duplicate_cursor()
+			if duplicate_cursor in values:
+				row_index = values.index(duplicate_cursor)+2
+				values = values[values.index(duplicate_cursor):]
 
 			screen_names = []
 			max_requests = 90 # sheets api: 100 requests/100 seconds/1 user
 			for index, uscreen_name in enumerate(values):
 				max_requests -= 1
 				if values[index+1:].count(uscreen_name) > 0:
-					screen_names.append(self.get_cell_value('mentions', 'A'+str(row_index)))
-					self.remove_row_from_category_spreadsheet('mentions', row_index, False)
+					screen_names.append(self.get_cell_value(category.lower(), 'A'+str(row_index)))
+					self.remove_row_from_category_spreadsheet(category.lower(), row_index, False)
 				else:
 					# only increase the row_index if you didn't delete a row
 					row_index += 1
-					# only overwrite the mentions_cursor if mention was kept
-					self.overwrite_mentions_cursor(uscreen_name)
+					# only overwrite the duplicate_cursor if mention was kept
+					self.overwrite_duplicate_cursor(uscreen_name)
 
 				if max_requests <= 0:
 					print('MAX_REQUESTS Limit reached.  Please wait 100 seconds to try again ('+str(datetime.now()+relativedelta(seconds=100))+').')
@@ -524,6 +524,9 @@ class Tweeder(object):
 					print('\r0{0} {1}'.format(_x, uscreen_name).ljust(30)+'\r', end='', flush=True)
 					_x -= 1
 					time.sleep(1)
+
+		# remove duplicate users
+		sheet.remove_old_duplicate_category('listed')
 
 	# -----------  View whitelisted users  -----------
 	def view_whitelisted_users(self):
@@ -698,7 +701,8 @@ def menu():
 		"Remove mentions > 6 months",
 		"Clean category users",
 		"Reset CURSORs",
-		"Remove duplicate mentions"
+		"Remove duplicate mentions",
+		"Remove duplicate listed"
 	]
 
 	opts = Picker(
@@ -736,10 +740,12 @@ def menu():
 		elif opt == user_options[8]:
 			tweeder.sheet.overwrite_next_cursor('-1')
 			tweeder.sheet.overwrite_cleanup_cursor('')
-			tweeder.sheet.overwrite_mentions_cursor('')
+			tweeder.sheet.overwrite_duplicate_cursor('')
 		elif opt == user_options[9]:
-			removed_users = tweeder.sheet.remove_old_duplicate_mentions()
+			removed_users = tweeder.sheet.remove_old_duplicate_category('mentions')
 			print(removed_users)
+		elif opt == user_options[10]:
+			tweeder.sheet.remove_old_duplicate_category('listed')
 		else:
 			return True
 
