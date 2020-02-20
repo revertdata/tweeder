@@ -494,6 +494,9 @@ class Tweeder(object):
 		tw = self.tw
 		sheet = self.sheet
 
+		t = tw.t
+		user = t.users.show(screen_name=uscreen_name)
+
 		# Verified users (I know, I know)
 		if user["verified"] == True:
 			sheet.add_users_to_category('verified', [[uscreen_name]])
@@ -591,6 +594,8 @@ class Tweeder(object):
 
 	# -----------  Check if user is "newly whitelisted", determine unfollow  -----------
 	def unfollow_after_newly_whitelisted_check(self, uscreen_name):
+		tw = self.tw
+
 		newly_whitelisted = self.add_tw_user_to_sheet_category(uscreen_name)
 		if newly_whitelisted:
 			print(STARTC + uscreen_name + ' is newly whitelisted.' + ENDC)
