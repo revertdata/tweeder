@@ -32,6 +32,7 @@ from g import SCOPES, SPREADSHEET_ID, GSPREAD_SCOPES
 STARTC='\033[90m'
 ENDC='\033[0m'
 utc=pytz.UTC
+SHEET_LINK = 'https://docs.google.com/spreadsheets/d/'+SPREADSHEET_ID+'/edit#gid=0'
 
 # =============================================
 # =           Account Handler Class           =
@@ -106,6 +107,8 @@ class AccountHandler(object):
 					print("ERROR in AccountHandler.get_old_tweets:")
 					print(STARTC)
 					print(e)
+					print()
+					print(SHEET_LINK)
 					print(ENDC)
 					print("-----------")
 					continue
@@ -129,6 +132,8 @@ class AccountHandler(object):
 					print("ERROR in AccountHandler.get_old_tweets:")
 					print(STARTC)
 					print(e)
+					print()
+					print(SHEET_LINK)
 					print(ENDC)
 					print("-----------")
 
@@ -155,6 +160,8 @@ class AccountHandler(object):
 					print("ERROR in AccountHandler.get_old_tweets:")
 					print(STARTC)
 					print(e)
+					print()
+					print(SHEET_LINK)
 					print(ENDC)
 					print("-----------")
 
@@ -424,6 +431,9 @@ class ExemptHandler(object):
 					row_index += 1
 					# only overwrite the duplicate_cursor if mention was kept
 					self.overwrite_duplicate_cursor(uscreen_name)
+					# subtract another request for overwriting duplicate cursor
+					max_requests -= 1
+					time.sleep(1)
 
 				if max_requests <= 0:
 					print('MAX_REQUESTS Limit reached.  Please wait 100 seconds to try again ('+str(datetime.now()+relativedelta(seconds=100))+').')
@@ -575,6 +585,8 @@ class Tweeder(object):
 				print("ERROR in Tweeder.unfollow_inactive_users:")
 				print(STARTC)
 				print(e)
+				print()
+				print(SHEET_LINK)
 				print(ENDC)
 				print("-----------")
 				continue
@@ -668,6 +680,8 @@ class Tweeder(object):
 			print(STARTC)
 			print("Errors with the following users:")
 			print(*error_users, sep = ", ")
+			print()
+			print(SHEET_LINK)
 			print(ENDC)
 			print("-----------")
 
