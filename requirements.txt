@@ -1,4 +1,4 @@
-httplib2==0.15.0
+httplib2==0.18.0
 pytz==2017.2
 google_api_python_client==1.7.11
 gspread==3.1.0
