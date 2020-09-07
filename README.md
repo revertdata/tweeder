@@ -1,4 +1,4 @@
-# Tweeder
+# Tweeder <!-- omit in toc -->
 
 > Scripts to clean my twitter account to cater to my own ticks.
 
@@ -8,9 +8,7 @@ It's called Tweeder because my last name is Weed.
 
 For the last 5 years, I kept a 1:1 following ratio on Twitter.  I recently decided to start only following people who I regularly interact with, instead.  This script also deletes certain tweets and keeps my account tidy.  Happy 2020 :)
 
-## Installation
-
-<!-- MarkdownTOC autolink="true" -->
+## Installation <!-- omit in toc -->
 
 - [1. Request your Twitter archive](#1-request-your-twitter-archive)
 - [2. Set up IFTTT](#2-set-up-ifttt)
@@ -18,8 +16,7 @@ For the last 5 years, I kept a 1:1 following ratio on Twitter.  I recently decid
   - [Google Sheets Authentication](#google-sheets-authentication)
   - [Gspread Authentication](#gspread-authentication)
 - [4. Create a Twitter Application](#4-create-a-twitter-application)
-
-<!-- /MarkdownTOC -->
+- [5. Localhost install](#5-localhost-install)
 
 ## 1. Request your Twitter archive
 
@@ -43,6 +40,8 @@ Use the following line to format each row:
 
 * If you get an influx of tweets at once, it may skip some additions.  For example, [for this tweet](https://twitter.com/telepathics/status/1208839624422051846), a handful of people were not added, and were unfollowed as a result.
 * It creates a new spreadsheet after ~2,000 rows. Temporary combats include 1.) deleting rows older than 6 months old, and 2.) deleting old mentions by the same user, keeping only their most recent reply.
+* IFTTT just decides to deactivate my applet sometimes ???
+
 
 ## 3. Customize your Google Sheets
 
@@ -141,3 +140,21 @@ Make sure that your application has read/write access to your account.  I called
 <p align="center">
   <img height="200" src="https://raw.githubusercontent.com/revertdata/tweeder/master/tweeder.PNG?token=ACZLNMUPMGJLG5UNCWANZS26CJINE">
 </p>
+
+## 5. Localhost install
+
+Personally, I prefer to use a [Conda](https://formulae.brew.sh/cask/anaconda) env for keeping my python packages tidy, so feel free to check that out.  This is good to keep track of what packages are actually necessary.  To install dependencies for Tweeder, run the following in your terminal from the root of the repo:
+
+`pip install -r requirements.txt`
+
+After everything is downloaded, you can finally start the application:
+
+`python ./main.py`
+
+## Credits <!-- omit in toc -->
+
+This code is licensed under MIT. For more information, check the `LICENSE`.
+
+Feel free (and I encourage you) to fork, make pull requests, and submit issues for anything that will improve the experience.
+
+If you want to support myself or the project, consider [sponsoring my GitHub](https://github.com/sponsors/revertdata)! <3

@@ -619,6 +619,15 @@ class Tweeder(object):
 		return True
 
 	# -----------  Remove users from categories if not following  -----------
+	"""
+	
+		TODO:
+		- add "deactivated" to category sheet + whitelist sheet
+		- ignore user if deactivated
+		- write function to check on deactivated users
+	
+	"""
+	
 	def remove_unfollowers_from_categories(self, source_screen_name):
 		tw = self.tw
 		sheet = self.sheet
@@ -663,6 +672,16 @@ class Tweeder(object):
 						_x -= 1
 						time.sleep(1)
 			except Exception as e:
+				print()
+				print("-----------")
+				print()
+				print("ERROR in Tweeder.remove_unfollowers_from_categories:")
+				print(STARTC)
+				print(e)
+				print()
+				print(SHEET_LINK)
+				print(ENDC)
+				print("-----------")
 				error_users.append(uscreen_name)
 				continue
 
