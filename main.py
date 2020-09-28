@@ -11,7 +11,7 @@ import pytz
 from datetime import datetime, timezone
 from dateutil.relativedelta import relativedelta
 
-from picker import *
+from picker import Picker
 from httplib2 import Http
 from oauth2client import file, client, tools
 from oauth2client.service_account import ServiceAccountCredentials
@@ -22,7 +22,7 @@ import re
 import json
 import random
 
-from twitter import *
+from twitter import Twitter, OAuth
 from t import ACCESS_TOKEN_KEY, ACCESS_TOKEN_SECRET, CONSUMER_KEY, CONSUMER_SECRET
 
 import gspread
@@ -33,6 +33,22 @@ STARTC='\033[90m'
 ENDC='\033[0m'
 utc=pytz.UTC
 SHEET_LINK = 'https://docs.google.com/spreadsheets/d/'+SPREADSHEET_ID+'/edit#gid=0'
+
+# =============================================
+# =          Public Helper Functions          =
+# =============================================
+
+def displayError(e, location):
+	print()
+	print("-----------")
+	print()
+	print("ERROR in " + location + ":")
+	print(STARTC)
+	print(e)
+	print()
+	print(SHEET_LINK)
+	print(ENDC)
+	print("-----------")
 
 # =============================================
 # =           Account Handler Class           =
@@ -76,14 +92,13 @@ class AccountHandler(object):
 
 	# -----------  Get User IDs from Tweet Interactions  -----------
 	def get_tweet_interaction_user_IDs(self, action, post_id):
-		t = self.t
-
 		try:
 			json_data = urlopen('https://twitter.com/i/activity/' + str(action) + '_popup?id=' + str(post_id)).read().decode('utf-8')
 			found_ids = re.findall(r'data-user-id=\\"+\d+', json_data)
 			unique_ids = list(set([re.findall(r'\d+', match)[0] for match in found_ids]))
 			return unique_ids
 		except HTTPError:
+			displayError(HTTPError, 'AccountHandler.get_tweet_interaction_user_IDs')
 			return False
 
 	# -----------  Get old tweets from tweet.json  -----------
@@ -101,16 +116,7 @@ class AccountHandler(object):
 					if old_enough:
 						old_tweets.append(tweet)
 				except Exception as e:
-					print()
-					print("-----------")
-					print()
-					print("ERROR in AccountHandler.get_old_tweets:")
-					print(STARTC)
-					print(e)
-					print()
-					print(SHEET_LINK)
-					print(ENDC)
-					print("-----------")
+					displayError(e, 'AccountHandler.get_old_tweets')
 					continue
 		return old_tweets, created_at
 
@@ -126,16 +132,8 @@ class AccountHandler(object):
 				print('DELETED ' + tweet['id_str'] + ' (' + created_at.strftime("%a %b %d %H:%M:%S %z %Y") + ')')
 				print()
 			except Exception as e:
-					print()
-					print("-----------")
-					print()
-					print("ERROR in AccountHandler.get_old_tweets:")
-					print(STARTC)
-					print(e)
-					print()
-					print(SHEET_LINK)
-					print(ENDC)
-					print("-----------")
+				displayError(e, 'AccountHandler.delete_archived_tweets')
+				continue
 
 		return True
 
@@ -154,16 +152,8 @@ class AccountHandler(object):
 					print('DELETED ' + tweet['id_str'] + ' (' + created_at.strftime("%a %b %d %H:%M:%S %z %Y") + ')')
 					print()
 			except Exception as e:
-					print()
-					print("-----------")
-					print()
-					print("ERROR in AccountHandler.get_old_tweets:")
-					print(STARTC)
-					print(e)
-					print()
-					print(SHEET_LINK)
-					print(ENDC)
-					print("-----------")
+					displayError(e, 'AccountHandler.delete_archived_tweets')
+					continue
 
 		return True
 
@@ -205,7 +195,7 @@ class AccountHandler(object):
 
 class ExemptHandler(object):
 	def __init__(self):
-		self.service, self.client, self.sheet = self.g_auth()
+		self.service, self.sheet = self.g_auth()
 		self.whitelist = self.get_whitelist()
 		self.categories = ['MENTIONS', 'FAVORITED', 'RETWEETED', 'VERIFIED', 'NOTIFICATIONS', 'LISTED', 'TWEETS']
 
@@ -221,14 +211,13 @@ class ExemptHandler(object):
 		service = build('sheets', 'v4', http=creds.authorize(Http()))
 
 		gcreds = ServiceAccountCredentials.from_json_keyfile_name('service_credentials.json', GSPREAD_SCOPES)
-		client = gspread.authorize(gcreds)
-		sheet = client.open("Twitter mentions")
+		gclient = gspread.authorize(gcreds)
+		sheet = gclient.open("Twitter mentions")
 
-		return service, client, sheet
+		return service, sheet
 
 	# -----------  Get Whitelist  -----------
 	def get_whitelist(self):
-		service = self.service
 		values = self.get_category_users('whitelist')
 
 		return values
@@ -290,10 +279,9 @@ class ExemptHandler(object):
 	# -----------  Overwrite cell in spreadsheet  -----------
 	def overwrite_cell(self, value, category, range):
 		service = self.service
-		client = self.client
 
 		resource = {"values": [[value]]}
-		CAT_RANGE = category.upper()+"!"+range;
+		CAT_RANGE = category.upper()+"!"+range
 
 		# delete old cursor
 		service.spreadsheets().values().clear(
@@ -329,9 +317,9 @@ class ExemptHandler(object):
 	# -----------  Add User to Category Spreadsheet  -----------
 	def add_users_to_category(self, category, screen_names):
 		service = self.service
-
 		resource = {"values": screen_names}
-		CAT_RANGE = category.upper() + "!A:A";
+		CAT_RANGE = category.upper() + "!A:A"
+
 		service.spreadsheets().values().append(
 			spreadsheetId=SPREADSHEET_ID,
 			range=CAT_RANGE,
@@ -343,13 +331,12 @@ class ExemptHandler(object):
 
 	# -----------  Remove User from Category Spreadsheet  -----------
 	def remove_user_from_category(self, category, uscreen_name):
-		service = self.service
 		removed = False
-
 		category_users = self.get_category_users(category)
+
 		if category_users and uscreen_name in category_users:
 			rows_to_remove = category_users.count(uscreen_name)
-			for x in range(rows_to_remove):
+			for _ in range(rows_to_remove):
 				category_users = self.get_category_users(category)
 				row_index = category_users.index(uscreen_name)
 				self.remove_row_from_category_spreadsheet(category, row_index+2)
@@ -362,9 +349,6 @@ class ExemptHandler(object):
 
 	# -----------  Remove row from Category Spreadsheet  -----------
 	def remove_row_from_category_spreadsheet(self, category, row_index, printDeletion=True):
-		service = self.service
-		client = self.client
-
 		spreadsheet = self.sheet.worksheet(category.upper())
 		if printDeletion:
 			# only print on low-stress API calls
@@ -405,9 +389,6 @@ class ExemptHandler(object):
 
 	# -----------  Delete old mentions from users who appear multiple times  -----------
 	def remove_old_duplicate_category(self, category):
-		service = self.service
-		MENTIONS_USCREEN_COL = category.upper()+"!A2:A"
-
 		values = self.get_category_users(category.lower())
 
 		if not values:
@@ -543,7 +524,6 @@ class Tweeder(object):
 
 	# -----------  View whitelisted users  -----------
 	def view_whitelisted_users(self):
-		tw = self.tw
 		sheet = self.sheet
 
 		whitelist = sheet.get_whitelist()
@@ -580,15 +560,7 @@ class Tweeder(object):
 					self.unfollow_after_newly_whitelisted_check(uscreen_name)
 
 			except Exception as e:
-				print()
-				print("-----------")
-				print("ERROR in Tweeder.unfollow_inactive_users:")
-				print(STARTC)
-				print(e)
-				print()
-				print(SHEET_LINK)
-				print(ENDC)
-				print("-----------")
+				displayError(e, 'AccountHandler.unfollow_inactive_users')
 				continue
 			sleepy = random.randrange(1, 4) * 2
 			_x = sleepy
@@ -613,21 +585,21 @@ class Tweeder(object):
 			print(STARTC + uscreen_name + ' is newly whitelisted.' + ENDC)
 			return False
 		else:
-			unfollowed = tw.unfollow_twitter_user(uscreen_name)
+			tw.unfollow_twitter_user(uscreen_name)
 			print('Unfollowed ' + uscreen_name)
 
 		return True
 
 	# -----------  Remove users from categories if not following  -----------
 	"""
-	
+
 		TODO:
 		- add "deactivated" to category sheet + whitelist sheet
 		- ignore user if deactivated
 		- write function to check on deactivated users
-	
+
 	"""
-	
+
 	def remove_unfollowers_from_categories(self, source_screen_name):
 		tw = self.tw
 		sheet = self.sheet
@@ -672,16 +644,7 @@ class Tweeder(object):
 						_x -= 1
 						time.sleep(1)
 			except Exception as e:
-				print()
-				print("-----------")
-				print()
-				print("ERROR in Tweeder.remove_unfollowers_from_categories:")
-				print(STARTC)
-				print(e)
-				print()
-				print(SHEET_LINK)
-				print(ENDC)
-				print("-----------")
+				displayError(e, 'AccountHandler.remove_unfollowers_from_categories')
 				error_users.append(uscreen_name)
 				continue
 
@@ -706,7 +669,6 @@ class Tweeder(object):
 
 	# -----------  Daily Tasks  -----------
 	def dailies(self):
-		tw = self.tw
 		sheet = self.sheet
 
 		# Reset CURSORs
@@ -723,6 +685,7 @@ class Tweeder(object):
 
 		# Unfollow inactive users
 		self.remove_unfollowers_from_categories('telepathics')
+		self.unfollow_inactive_users()
 
 # ======================================
 # =           Helper Options           =

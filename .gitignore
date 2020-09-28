@@ -6,6 +6,8 @@ service_credentials.json
 
 # -----------  TEMP Files  -----------
 .DS_Store
+.vscode
+.prettierrc
 __pycache__
 users.json
 tweet.json

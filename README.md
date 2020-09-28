@@ -4,8 +4,6 @@
 
 🗣 Say hello! [@telepathics](https://twitter.com/telepathics) | [@revertdata](https://twitter.com/revertdata)
 
-It's called Tweeder because my last name is Weed.
-
 For the last 5 years, I kept a 1:1 following ratio on Twitter.  I recently decided to start only following people who I regularly interact with, instead.  This script also deletes certain tweets and keeps my account tidy.  Happy 2020 :)
 
 ## Installation <!-- omit in toc -->
