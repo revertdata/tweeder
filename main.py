@@ -3,7 +3,6 @@
 # =======================================
 # =           Twitter cleaner           =
 # =   https://twitter.com/telepathics   =
-# =   https://twitter.com/revertdata    =
 # =======================================
 
 import time
@@ -508,7 +507,7 @@ class Tweeder(object):
 		lists = tw.get_twitter_lists(owner_screen_name)
 		for li in lists:
 			members = tw.get_twitter_list_members(li["id"])
-			print("Adding users from '"+li["name"])
+			print("Adding users from: "+li["name"])
 			for user in members["users"]:
 				uscreen_name = user['screen_name'].lower()
 				sheet.add_users_to_category('listed', [[uscreen_name]])

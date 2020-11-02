@@ -2,9 +2,11 @@
 
 > Scripts to clean my twitter account to cater to my own ticks.
 
-🗣 Say hello! [@telepathics](https://twitter.com/telepathics) | [@revertdata](https://twitter.com/revertdata)
+🗣 Say hello! [@telepathics](https://twitter.com/telepathics)
 
-For the last 5 years, I kept a 1:1 following ratio on Twitter.  I recently decided to start only following people who I regularly interact with, instead.  This script also deletes certain tweets and keeps my account tidy.  Happy 2020 :)
+For the last 5 years, I kept a 1:1 following ratio on Twitter.  I recently decided to start only following people who I regularly interact with, instead.  This script also deletes certain tweets and keeps my account tidy.
+
+See the [live spreadsheet here](https://docs.google.com/spreadsheets/d/1VVU6jz63JLqxooM4z01xxOvjrtjYvOmr9AvPBoOVDCA/edit#gid=0), which also includes general information on stuff like how to become mutuals, how often i run the script, or how to receive a DM when we haven't tweeted at each other in the last 6 months.
 
 ## Installation <!-- omit in toc -->
 
