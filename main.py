@@ -372,18 +372,35 @@ class ExemptHandler(object):
 		else:
 			screen_names = []
 			past_time = datetime.now() - relativedelta(months=6)
-			print('Deleting mentions older than ' + str(past_time.replace(tzinfo=utc)) + '...')
+			last_week = datetime.now() - relativedelta(days=6)
 			row_index = 2 # row_index is offset by 2 in Google Sheets
+
+			print('Deleting mentions older than ' + str(past_time.replace(tzinfo=utc)) + '...')
+
+			# double-check IFTTT applet is running (if there have been mentions in the last 7 days)
+			cont = True
+			recent_mentions = False
 			for datecol in values:
-				if datetime.strptime(datecol[0],"%m/%d/%Y").replace(tzinfo=utc) < past_time.replace(tzinfo=utc):
-					screen_names.append(self.get_cell_value('mentions', 'A'+str(row_index)))
-					self.remove_row_from_category_spreadsheet('mentions', row_index)
-				else:
-					# only increase the row_index if you didn't delete a row
-					row_index += 1
+				if datetime.strptime(datecol[0],"%m/%d/%Y").replace(tzinfo=utc) > last_week.replace(tzinfo=utc):
+					recent_mentions = True
+			if not recent_mentions:
+				print('Please double-check that IFTTT is running the applet.')
+				answ = input('Continue? (Y/N): ')
+				if answ.lower() in ('no', 'n', 'exit', 'e', 'quit', 'q'):
+					cont = False
 
-			return screen_names
+			if cont == True:
+				for datecol in values:
+					if datetime.strptime(datecol[0],"%m/%d/%Y").replace(tzinfo=utc) < past_time.replace(tzinfo=utc):
+						screen_names.append(self.get_cell_value('mentions', 'A'+str(row_index)))
+						self.remove_row_from_category_spreadsheet('mentions', row_index)
+					else:
+						# only increase the row_index if you didn't delete a row
+						row_index += 1
 
+				return screen_names
+
+			return False
 		return True
 
 	# -----------  Delete old mentions from users who appear multiple times  -----------
