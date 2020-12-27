@@ -196,7 +196,7 @@ class ExemptHandler(object):
 	def __init__(self):
 		self.service, self.sheet = self.g_auth()
 		self.whitelist = self.get_whitelist()
-		self.categories = ['MENTIONS', 'FAVORITED', 'RETWEETED', 'VERIFIED', 'NOTIFICATIONS', 'LISTED', 'TWEETS']
+		self.categories = ['MENTIONS', 'INTERACTIONS', 'LISTED']
 
 		return
 
@@ -504,14 +504,9 @@ class Tweeder(object):
 		t = tw.t
 		user = t.users.show(screen_name=uscreen_name)
 
-		# Verified users (I know, I know)
-		if user["verified"] == True:
-			sheet.add_users_to_category('verified', [[uscreen_name]])
-			return True
-
-		# Users I have notifications on
-		if user["notifications"] == True:
-			sheet.add_users_to_category('notifications', [[uscreen_name]])
+		# check if user should be listed
+		if user["verified"] == True or user["notifications"] == True:
+			sheet.add_users_to_category('listed', [[uscreen_name]])
 			return True
 
 		return False
@@ -697,7 +692,7 @@ class Tweeder(object):
 			uscreen_name = screen_name.lower()
 			if not self.user_is_whitelisted(uscreen_name):
 				print(STARTC + uscreen_name + ' has not tweeted at you in 6 months.' + ENDC)
-				_unfollowed = self.unfollow_after_newly_whitelisted_check(uscreen_name)
+				self.unfollow_after_newly_whitelisted_check(uscreen_name)
 
 		# Unfollow inactive users
 		self.remove_unfollowers_from_categories('telepathics')
