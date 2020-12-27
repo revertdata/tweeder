@@ -119,12 +119,22 @@ class AccountHandler(object):
 					continue
 		return old_tweets, created_at
 
+	# -----------  Send DM  -----------
+	def send_direct_message(self, uscreen_name):
+		t = self.t
+		sent = t.direct_messages.new(
+			user=uscreen_name,
+			text="test")
+
+		return sent
+
 	# -----------  Delete tweets older than 2 years  -----------
 	def delete_archived_tweets(self):
 		t = self.t
 		old_tweets, created_at = self.get_old_tweets(2)
 
 		for tweet in old_tweets:
+			# TODO double check the tweet isn't protected in TWEET sheet
 			try:
 				t.statuses.destroy(_id=tweet['id_str'])
 				print(tweet['full_text'])
@@ -159,6 +169,7 @@ class AccountHandler(object):
 	# -----------  Unfollow users on Twitter  -----------
 	def unfollow_twitter_user(self, uscreen_name):
 		t = self.t
+    # TODO add safety net for private accounts
 		t.friendships.destroy(screen_name=uscreen_name)
 
 		return True
@@ -185,12 +196,6 @@ class AccountHandler(object):
 # ============================================
 # =           Exempt Handler Class           =
 # ============================================
-"""
-
-	TODO:
-	- Delete mentions from before 6 months ago
-
-"""
 
 class ExemptHandler(object):
 	def __init__(self):
@@ -222,9 +227,9 @@ class ExemptHandler(object):
 		return values
 
 	# -----------  Get screen_names from specific category  -----------
-	def get_category_users(self, category):
+	def get_category_users(self, category, col='A'):
 		service = self.service
-		RANGE_NAME = category.upper() + '!A2:A'
+		RANGE_NAME = category.upper() + '!' + col + '2:' + col
 
 		result = service.spreadsheets().values().get(
 			spreadsheetId=SPREADSHEET_ID,
@@ -447,21 +452,13 @@ class ExemptHandler(object):
 						_x -= 1
 						time.sleep(1)
 
-			return screen_names
+			return removed_screen_names
 
 		return True
 
 # =========================================
 # =           Tweeder Functions           =
 # =========================================
-"""
-
-	TODO:
-	- Add tweets with > 100 interactions to whitelist
-	- Add users in private Twitter lists to whitelist
-	- Check if whitelist user follows me
-
-"""
 
 class Tweeder(object):
 	def __init__(self, tw, sheet):
@@ -607,15 +604,6 @@ class Tweeder(object):
 		return True
 
 	# -----------  Remove users from categories if not following  -----------
-	"""
-
-		TODO:
-		- add "deactivated" to category sheet + whitelist sheet
-		- ignore user if deactivated
-		- write function to check on deactivated users
-
-	"""
-
 	def remove_unfollowers_from_categories(self, source_screen_name):
 		tw = self.tw
 		sheet = self.sheet
@@ -709,17 +697,17 @@ class Tweeder(object):
 
 def menu():
 	user_options = [
-		"Daily tasks",
-		"Delete tweets older than 2 years",
-		"Delete tweets without interactions",
-		"Unfollow users",
-		"Add recent interactions to whitelist",
-		"Add listed users to whitelist",
-		"Remove mentions > 6 months",
-		"Clean category users",
-		"Reset CURSORs",
-		"Remove duplicate mentions",
-		"Remove duplicate listed"
+		"0. Daily tasks",
+		"1. Delete tweets older than 2 years",
+		"2. Delete tweets without interactions",
+		"3. Unfollow users",
+		"4. Add recent interactions to whitelist",
+		"5. Add listed users to whitelist",
+		"6. Remove mentions > 6 months",
+		"7. Clean category users",
+		"8. Reset CURSORs",
+		"9. Remove duplicate mentions",
+		"10. Remove duplicate listed"
 	]
 
 	opts = Picker(
