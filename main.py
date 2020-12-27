@@ -406,6 +406,7 @@ class ExemptHandler(object):
 	# -----------  Delete old mentions from users who appear multiple times  -----------
 	def remove_old_duplicate_category(self, category):
 		values = self.get_category_users(category.lower())
+		listed = self.get_category_users('listed')
 
 		if not values:
 			return False
@@ -416,12 +417,16 @@ class ExemptHandler(object):
 				row_index = values.index(duplicate_cursor)+2
 				values = values[values.index(duplicate_cursor):]
 
-			screen_names = []
+
+			removed_screen_names = []
 			max_requests = 90 # sheets api: 100 requests/100 seconds/1 user
 			for index, uscreen_name in enumerate(values):
 				max_requests -= 1
-				if values[index+1:].count(uscreen_name) > 0:
-					screen_names.append(self.get_cell_value(category.lower(), 'A'+str(row_index)))
+
+				# remove user from mentions sheets if listed or repeated
+				user_listed = category.lower() == 'mentions' and uscreen_name in listed
+				if user_listed or (values[index+1:].count(uscreen_name) > 0):
+					removed_screen_names.append(self.get_cell_value(category.lower(), 'A'+str(row_index)))
 					self.remove_row_from_category_spreadsheet(category.lower(), row_index, False)
 				else:
 					# only increase the row_index if you didn't delete a row
@@ -478,7 +483,7 @@ class Tweeder(object):
 					t = tw.t
 					user = t.users.show(user_id=uid)
 					uscreen_name = user['screen_name'].lower()
-					sheet.add_users_to_category(action, [[uscreen_name]])
+					sheet.add_users_to_category('interactions', [[uscreen_name]])
 					sleepy = random.randrange(1, 4) * 2
 					_x = sleepy
 					for _ in range(sleepy+1):
