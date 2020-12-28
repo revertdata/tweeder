@@ -180,8 +180,13 @@ class AccountHandler(object):
 	# -----------  Unfollow users on Twitter  -----------
 	def unfollow_twitter_user(self, uscreen_name):
 		t = self.t
-		# TODO add safety net for private accounts
-		t.friendships.destroy(screen_name=uscreen_name)
+		user = t.users.show(screen_name=uscreen_name)
+		if user["protected"] == False:
+			t.friendships.destroy(screen_name=uscreen_name)
+		else:
+			print()
+			print('Didn\'t unfollow https://twitter.com/' + uscreen_name + ' [user is protected]')
+			print()
 
 		return True
 
