@@ -32,6 +32,7 @@ STARTC='\033[90m'
 ENDC='\033[0m'
 utc=pytz.UTC
 SHEET_LINK = 'https://docs.google.com/spreadsheets/d/'+SPREADSHEET_ID+'/edit#gid=0'
+ROW_OFFSET = 2
 
 # =============================================
 # =          Public Helper Functions          =
@@ -353,7 +354,7 @@ class ExemptHandler(object):
 			for _ in range(rows_to_remove):
 				category_users = self.get_category_users(category)
 				row_index = category_users.index(uscreen_name)
-				self.remove_row_from_category_spreadsheet(category, row_index+2)
+				self.remove_row_from_category_spreadsheet(category, row_index + ROW_OFFSET)
 				removed = True
 
 		if removed:
@@ -391,7 +392,7 @@ class ExemptHandler(object):
 			past_time = (datetime.now() - relativedelta(months=6)).replace(tzinfo=utc)
 			up_next_end = (datetime.now() - relativedelta(months=6) + relativedelta(days=7)).replace(tzinfo=utc)
 			last_week = (datetime.now() - relativedelta(days=6)).replace(tzinfo=utc)
-			row_index = 2 # row_index is offset by 2 in Google Sheets
+			row_index = 0 + ROW_OFFSET
 
 			print('Deleting mentions older than ' + str(past_time) + '...')
 
@@ -414,7 +415,8 @@ class ExemptHandler(object):
 					udatetime = datetime.strptime(datecol[0],"%m/%d/%Y").replace(tzinfo=utc)
 					if udatetime < past_time:
 						removed_screen_names.append(uscreen_name)
-						self.remove_row_from_category_spreadsheet('mentions', row_index)
+						if self.get_cell_value('mentions', 'D' + str(row_index)) != 'error':
+							self.remove_row_from_category_spreadsheet('mentions', row_index)
 					else:
 						row_index += 1
 						# check if user submitted grace-period entry
@@ -435,10 +437,10 @@ class ExemptHandler(object):
 		if not values:
 			return False
 		else:
-			row_index = 2 # row_index is offset by 2 in Google Sheets
+			row_index = 0 + ROW_OFFSET
 			duplicate_cursor = self.get_duplicate_cursor()
 			if duplicate_cursor in values:
-				row_index = values.index(duplicate_cursor)+2
+				row_index = values.index(duplicate_cursor) + ROW_OFFSET
 				values = values[values.index(duplicate_cursor):]
 
 
@@ -630,6 +632,8 @@ class Tweeder(object):
 		categories = sheet.categories
 		whitelist = sheet.get_whitelist()
 		cleanup_cursor = sheet.get_cleanup_cursor()
+		categories_and_whitelist = categories
+		categories_and_whitelist.append("WHITELIST")
 
 		if cleanup_cursor in whitelist:
 			cleanup_cursor = cleanup_cursor.lower()
@@ -667,6 +671,11 @@ class Tweeder(object):
 						_x -= 1
 						time.sleep(1)
 			except Exception as e:
+				# mark as error in sheet
+				for category in categories_and_whitelist:
+					cat_users = sheet.get_category_users(category)
+					if uscreen_name in cat_users:
+						sheet.overwrite_cell('error', category, ('D' if category.lower() == 'mentions' else 'B') + str(cat_users.index(uscreen_name) + ROW_OFFSET))
 				displayError(e, 'AccountHandler.remove_unfollowers_from_categories')
 				error_users.append(uscreen_name)
 				continue
