@@ -214,8 +214,6 @@ class ExemptHandler(object):
 		self.whitelist = self.get_whitelist()
 		self.categories = ['MENTIONS', 'INTERACTIONS', 'LISTED']
 
-		self.overwrite_cell(datetime.now(), 'INFORMATION', 'B3')
-
 		return
 
 	# -----------  Basic Google Authentication  -----------
@@ -732,7 +730,7 @@ class Tweeder(object):
 # =           Helper Options           =
 # ======================================
 
-def menu():
+def menu(tweeder):
 	user_options = [
 		"0. Daily tasks",
 		"1. Delete tweets older than 2 years",
@@ -751,12 +749,6 @@ def menu():
 		title = 'What would you like to do?',
 		options = user_options
 	).getSelected()
-
-	# ===== CONNECT TO RESOURCES AND CLASSES =====
-	_tw = AccountHandler()
-	_sheet = ExemptHandler()
-	tweeder = Tweeder(_tw, _sheet)
-	# ===== CONNECTION COMPLETE =====
 
 	if opts == False:
 		return opts
@@ -803,8 +795,21 @@ def menu():
 
 def main():
 	running = True
+
+	# ===== CONNECT TO RESOURCES AND CLASSES =====
+	_tw = AccountHandler()
+	_sheet = ExemptHandler()
+	tweeder = Tweeder(_tw, _sheet)
+	tweeder.sheet.overwrite_cell(str(datetime.now()), 'INFORMATION', 'B3')
+	print()
+	print("Connection complete!")
+	time.sleep(1)
+	print("Loading...")
+	time.sleep(3)
+	# ===== CONNECTION COMPLETE =====
+
 	while running:
-		running = menu()
+		running = menu(tweeder)
 
 	print("Thank you, come again!")
 	return
