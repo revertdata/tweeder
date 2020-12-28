@@ -648,39 +648,41 @@ class Tweeder(object):
 		error_users = []
 		for screen_name in whitelist:
 			uscreen_name = screen_name.strip().lower()
-			try:
-				friendship = tw.t.friendships.show(source_screen_name=source_screen_name, target_screen_name=uscreen_name)
-				max_requests -= 1
+			blocked_list = sheet.get_category_users('blocked')
+			if uscreen_name not in blocked_list:
+				try:
+					friendship = tw.t.friendships.show(source_screen_name=source_screen_name, target_screen_name=uscreen_name)
+					max_requests -= 1
 
-				if friendship["relationship"]["target"]["following"] == False:
-					print(STARTC + uscreen_name + " is not following." + ENDC)
-					for category in categories:
-						sheet.remove_user_from_category(category, uscreen_name)
-				elif friendship["relationship"]["target"]["followed_by"] == False:
-					print(STARTC + uscreen_name + " is a new Reply Guy!" + ENDC)
-					tw.t.friendships.create(screen_name=uscreen_name, follow=False)
-					tw.t.friendships.update(screen_name=uscreen_name, retweets=False)
-				else:
-					tw.t.friendships.update(screen_name=uscreen_name, retweets=False)
+					if friendship["relationship"]["target"]["following"] == False:
+						print(STARTC + uscreen_name + " is not following." + ENDC)
+						for category in categories:
+							sheet.remove_user_from_category(category, uscreen_name)
+					elif friendship["relationship"]["target"]["followed_by"] == False:
+						print(STARTC + uscreen_name + " is a new Reply Guy!" + ENDC)
+						tw.t.friendships.create(screen_name=uscreen_name, follow=False)
+						tw.t.friendships.update(screen_name=uscreen_name, retweets=False)
+					else:
+						tw.t.friendships.update(screen_name=uscreen_name, retweets=False)
 
-				if max_requests <= 0:
-					print('MAX_REQUESTS Limit reached.  Please wait 5 minutes to try again ('+str(datetime.now()+relativedelta(minutes=15))+').')
-					sleepy = 300 # 5 minutes
-					_x = sleepy
-					max_requests = 150
-					for _ in range(sleepy+1):
-						print('\r0{0} {1}'.format(_x, uscreen_name).ljust(30)+'\r', end='', flush=True)
-						_x -= 1
-						time.sleep(1)
-			except Exception as e:
-				# mark as error in sheet
-				for category in categories_and_whitelist:
-					cat_users = sheet.get_category_users(category)
-					if uscreen_name in cat_users:
-						sheet.overwrite_cell('error', category, ('D' if category.lower() == 'mentions' else 'B') + str(cat_users.index(uscreen_name) + ROW_OFFSET))
-				displayError(e, 'AccountHandler.remove_unfollowers_from_categories')
-				error_users.append(uscreen_name)
-				continue
+					if max_requests <= 0:
+						print('MAX_REQUESTS Limit reached.  Please wait 5 minutes to try again ('+str(datetime.now()+relativedelta(minutes=15))+').')
+						sleepy = 300 # 5 minutes
+						_x = sleepy
+						max_requests = 150
+						for _ in range(sleepy+1):
+							print('\r0{0} {1}'.format(_x, uscreen_name).ljust(30)+'\r', end='', flush=True)
+							_x -= 1
+							time.sleep(1)
+				except Exception as e:
+					# mark as error in sheet
+					for category in categories_and_whitelist:
+						cat_users = sheet.get_category_users(category)
+						if uscreen_name in cat_users:
+							sheet.overwrite_cell('error', category, ('D' if category.lower() == 'mentions' else 'B') + str(cat_users.index(uscreen_name) + ROW_OFFSET))
+					displayError(e, 'AccountHandler.remove_unfollowers_from_categories')
+					error_users.append(uscreen_name)
+					continue
 
 			sheet.overwrite_cleanup_cursor(uscreen_name)
 			sleepy = random.randrange(1, 4) * 2
