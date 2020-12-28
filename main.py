@@ -60,14 +60,6 @@ class AccountHandler(object):
 		self.feed = []
 		self.friends = []
 
-	# -----------  Get Recent Tweets -----------
-	def get_recent_tweets(self, uscreen_name):
-		t = self.t
-		feed = t.statuses.user_timeline(screen_name=uscreen_name, count=200, exclude_replies=True, trim_user=True)
-
-		self.feed = feed
-		return feed
-
 	# -----------  Get Twitter Followers  -----------
 	def get_twitter_friends(self, cursor):
 		t = self.t
@@ -89,17 +81,6 @@ class AccountHandler(object):
 		screen_names = t.lists.members(list_id=list_id, count=5000, include_entities=False, skip_status=True)
 
 		return screen_names
-
-	# -----------  Get User IDs from Tweet Interactions  -----------
-	def get_tweet_interaction_user_IDs(self, action, post_id):
-		try:
-			json_data = urlopen('https://twitter.com/i/activity/' + str(action) + '_popup?id=' + str(post_id)).read().decode('utf-8')
-			found_ids = re.findall(r'data-user-id=\\"+\d+', json_data)
-			unique_ids = list(set([re.findall(r'\d+', match)[0] for match in found_ids]))
-			return unique_ids
-		except HTTPError:
-			displayError(HTTPError, 'AccountHandler.get_tweet_interaction_user_IDs')
-			return False
 
 	# -----------  Get old tweets from tweet.json  -----------
 	def get_old_tweets(self, years_ago):
@@ -172,7 +153,7 @@ class AccountHandler(object):
 					print('DELETED ' + tweet['id_str'] + ' (' + created_at.strftime("%a %b %d %H:%M:%S %z %Y") + ')')
 					print()
 			except Exception as e:
-					displayError(e, 'AccountHandler.delete_archived_tweets')
+					displayError(e, 'AccountHandler.delete_tweets_without_interactions')
 					continue
 
 		return True
@@ -491,29 +472,6 @@ class Tweeder(object):
 		self.tw = tw
 		self.sheet = sheet
 
-	# -----------  Add users who have interacted to their category sheets  -----------
-	def add_recent_interactions_to_whitelist(self):
-		tw = self.tw
-		sheet = self.sheet
-
-		recent_tweets = tw.get_recent_tweets('telepathics')
-		for tweet in recent_tweets:
-			tid = tweet['id']
-			actions = ['favorited', 'retweeted']
-			for action in actions:
-				uids = tw.get_tweet_interaction_user_IDs(action, tid)
-				for uid in uids:
-					t = tw.t
-					user = t.users.show(user_id=uid)
-					uscreen_name = user['screen_name'].lower()
-					sheet.add_users_to_category('interactions', [[uscreen_name]])
-					sleepy = random.randrange(1, 4) * 2
-					_x = sleepy
-					for _ in range(sleepy+1):
-						print('\r0{0} {1}'.format(_x, uscreen_name).ljust(30)+'\r', end='', flush=True)
-						_x -= 1
-						time.sleep(sleepy / 2)
-
 	# -----------  Add sheet category users to a twitter list  -----------
 	def add_sheet_category_users_to_tw_list(self, category, list_id, list_slug, owner_screen_name):
 		tw = self.tw
@@ -742,13 +700,12 @@ def menu(tweeder):
 		"1. Delete tweets older than 2 years",
 		"2. Delete tweets without interactions",
 		"3. Unfollow users",
-		"4. Add recent interactions to whitelist",
-		"5. Add listed users to whitelist",
-		"6. Remove mentions > 6 months",
-		"7. Clean category users",
-		"8. Reset CURSORs",
-		"9. Remove duplicate mentions",
-		"10. Remove duplicate listed"
+		"4. Add listed users to whitelist",
+		"5. Remove mentions > 6 months",
+		"6. Clean category users",
+		"7. Reset CURSORs",
+		"8. Remove duplicate mentions",
+		"9. Remove duplicate listed"
 	]
 
 	opts = Picker(
@@ -769,26 +726,24 @@ def menu(tweeder):
 		elif opt == user_options[3]:
 			tweeder.unfollow_inactive_users()
 		elif opt == user_options[4]:
-			tweeder.add_recent_interactions_to_whitelist()
-		elif opt == user_options[5]:
 			tweeder.add_listed_users_to_whitelist('telepathics')
-		elif opt == user_options[6]:
+		elif opt == user_options[5]:
 			# TODO check if user is in whitelist after removal, unfollow if not
 			[removed_screen_names, dm_screen_names] = tweeder.sheet.remove_old_mentions()
 			print('cleaned up: ', removed_screen_names)
 			for screen_name in dm_screen_names:
 				uscreen_name = screen_name.lower()
 				tweeder.tw.send_direct_message(uscreen_name)
-		elif opt == user_options[7]:
+		elif opt == user_options[6]:
 			tweeder.remove_unfollowers_from_categories('telepathics')
-		elif opt == user_options[8]:
+		elif opt == user_options[7]:
 			tweeder.sheet.overwrite_next_cursor('-1')
 			tweeder.sheet.overwrite_cleanup_cursor('')
 			tweeder.sheet.overwrite_duplicate_cursor('')
-		elif opt == user_options[9]:
+		elif opt == user_options[8]:
 			removed_users = tweeder.sheet.remove_old_duplicate_category('mentions')
 			print(removed_users)
-		elif opt == user_options[10]:
+		elif opt == user_options[9]:
 			tweeder.sheet.remove_old_duplicate_category('listed')
 		else:
 			return True
