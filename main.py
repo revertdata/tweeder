@@ -214,6 +214,8 @@ class ExemptHandler(object):
 		self.whitelist = self.get_whitelist()
 		self.categories = ['MENTIONS', 'INTERACTIONS', 'LISTED']
 
+		self.overwrite_cell(datetime.now(), 'INFORMATION', 'B3')
+
 		return
 
 	# -----------  Basic Google Authentication  -----------
