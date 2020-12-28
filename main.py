@@ -22,7 +22,7 @@ import json
 import random
 
 from twitter import Twitter, OAuth
-from t import ACCESS_TOKEN_KEY, ACCESS_TOKEN_SECRET, CONSUMER_KEY, CONSUMER_SECRET
+from t import ACCESS_TOKEN_KEY, ACCESS_TOKEN_SECRET, CONSUMER_KEY, CONSUMER_SECRET, MIN_FAVS
 
 import gspread
 from googleapiclient.discovery import build
@@ -145,16 +145,16 @@ class AccountHandler(object):
 		old_tweets, created_at = self.get_old_tweets(2)
 
 		for tweet in old_tweets:
-			# TODO double check the tweet isn't protected in TWEET sheet
-			try:
-				t.statuses.destroy(_id=tweet['id_str'])
-				print(tweet['full_text'])
-				print('DELETED ' + tweet['id_str'] + ' (' + created_at.strftime("%a %b %d %H:%M:%S %z %Y") + ')')
-				print()
-			except Exception as e:
-				displayError(e, 'AccountHandler.delete_archived_tweets')
-				continue
-
+			if int(tweet['favorite_count']) < MIN_FAVS:
+				try:
+					t.statuses.destroy(_id=tweet['id_str'])
+					print(tweet['full_text'])
+					print('DELETED ' + tweet['id_str'] + ' (' + created_at.strftime("%a %b %d %H:%M:%S %z %Y") + ')')
+					print('* ' + tweet['favorite_count'] + ' favorites')
+					print()
+				except Exception as e:
+					displayError(e, 'AccountHandler.delete_archived_tweets')
+					continue
 		return True
 
 	# -----------  Delete tweets without interactions  -----------

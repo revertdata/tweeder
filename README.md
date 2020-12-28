@@ -119,6 +119,8 @@ CONSUMER_KEY='ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 CONSUMER_SECRET='ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 ACCESS_TOKEN_KEY='1234567890-ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 ACCESS_TOKEN_SECRET='ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+MIN_FAVS=50
+# change MIN_FAVS to the minimum amount of favourites a tweet needs to avoid deletion
 ```
 
 Make sure that your application has read/write access to your account.  I called mine "Tweeder by maryn", but you can call yours whatever you want.  You can use this cute little icon, if you don't want the default bird.
