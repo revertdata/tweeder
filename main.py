@@ -512,7 +512,7 @@ class Tweeder(object):
 					for _ in range(sleepy+1):
 						print('\r0{0} {1}'.format(_x, uscreen_name).ljust(30)+'\r', end='', flush=True)
 						_x -= 1
-						time.sleep(1)
+						time.sleep(sleepy / 2)
 
 	# -----------  Add sheet category users to a twitter list  -----------
 	def add_sheet_category_users_to_tw_list(self, category, list_id, list_slug, owner_screen_name):
@@ -557,7 +557,7 @@ class Tweeder(object):
 					for _ in range(sleepy+1):
 						print('\r0{0} {1}'.format(_x, uscreen_name).ljust(30)+'\r', end='', flush=True)
 						_x -= 1
-						time.sleep(1)
+						time.sleep(sleepy / 2)
 
 		# remove duplicate users
 		sheet.remove_old_duplicate_category('listed')
@@ -607,7 +607,7 @@ class Tweeder(object):
 			for _ in range(sleepy+1):
 				print('\r0{0} {1}'.format(_x, uscreen_name).ljust(30)+'\r', end='', flush=True)
 				_x -= 1
-				time.sleep(1)
+				time.sleep(sleepy / 2)
 
 		if whitelisted == len(friends['users']):
 			next_cursor = friends['next_cursor']
@@ -677,7 +677,7 @@ class Tweeder(object):
 						for _ in range(sleepy+1):
 							print('\r0{0} {1}'.format(_x, uscreen_name).ljust(30)+'\r', end='', flush=True)
 							_x -= 1
-							time.sleep(1)
+							time.sleep(sleepy / 2)
 				except Exception as e:
 					# mark as error in sheet
 					for category in categories_and_whitelist:
@@ -694,7 +694,7 @@ class Tweeder(object):
 			for _ in range(sleepy+1):
 				print('\r0{0} {1}'.format(_x, uscreen_name).ljust(30)+'\r', end='', flush=True)
 				_x -= 1
-				time.sleep(1)
+				time.sleep(sleepy / 2)
 
 		if (len(error_users) > 0):
 			print()

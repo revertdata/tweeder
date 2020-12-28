@@ -6,7 +6,7 @@
 
 For the last 5 years, I kept a 1:1 following ratio on Twitter.  I recently decided to start only following people who I regularly interact with, instead.  This script also deletes certain tweets and keeps my account tidy.
 
-See the [live spreadsheet here](https://docs.google.com/spreadsheets/d/1VVU6jz63JLqxooM4z01xxOvjrtjYvOmr9AvPBoOVDCA/edit#gid=0), which also includes general information on stuff like how to become mutuals, how often i run the script, or how to receive a DM when we haven't tweeted at each other in the last 6 months.
+See the [live spreadsheet here](https://telepath.icu/followback), which also includes general information on stuff like how to become mutuals, how often i run the script, or how to receive a DM when we haven't tweeted at each other in the last 6 months.
 
 ## Installation <!-- omit in toc -->
 
@@ -45,34 +45,20 @@ Use the following line to format each row:
 
 ## 3. Customize your Google Sheets
 
-View my [active Google Sheets](https://docs.google.com/spreadsheets/d/1VVU6jz63JLqxooM4z01xxOvjrtjYvOmr9AvPBoOVDCA/edit#gid=0) data storage (my custom categories are hidden).
+Make a copy of the [Google Sheets template](https://docs.google.com/spreadsheets/d/10LzknYu4dBR5Q3XEQ1BGnpR6TsFl4yYWsGmUNkeRE_o/edit#gid=175422382) data storage.
 
-Upon the first IFTTT run, it will create a new spreadsheet (if there wasn't one already).
+Rename it to "Twitter mentions" so IFTTT can find and update it easily.
 
-The following two sheets are **REQUIRED** to work with Tweeder:
+You can also create other category sheets to use with Tweeder, but you will have to adjust some code and your WHITELIST script.  Mine also includes:
 
-1. `MENTIONS` - the sheet IFTTT will log your mentions.  It should remain the first sheet, since I don't think you can ask IFTTT to log to a separate sheet.
-2. `WHITELIST` - a sorted, unique list of Twitter screen names who are whitelisted from unfollows.
-
-Use the following line to create the basic WHITELIST:
-
-```sql
-=SORT(UNIQUE({MENTIONS!A2:A}))
-```
-
-You can also create other category sheets to use with Tweeder, and adjust your WHITELIST script.  Mine includes:
-
-* FAVORITED (beta)
-* RETWEETED (beta)
-* VERIFIED
-* NOTIFICATIONS
+* INTERACTIONS (beta)
 * LISTED
 * MANUAL
 
 So my WHITELIST function looks like this:
 
 ```sql
-=SORT(UNIQUE({MENTIONS!A2:A;VERIFIED!A2:A;NOTIFICATIONS!A2:A;LISTED!A2:A;MANUAL!A2:A}))
+=SORT(UNIQUE({MENTIONS!A2:A;LISTED!A2:A;MANUAL!A2:A}))
 ```
 
 **PLEASE NOTE** that I've made all of the ranges in this code to be `A2:A` because `A1` typically contains a heading.  There are no sheets that use `B:Z` because I want to be able to delete the entire row if that user is not following me.  `A2:A` contains a list of user screen_names.
@@ -87,14 +73,14 @@ Then, install the Google Client Library using pip:
 pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib
 ```
 
-You will also need to update the `g.py` file with your own SPREADSHEET_ID, which can be found in the URL of the Google Sheet you're editing.  For example, https://docs.google.com/spreadsheets/d/1VVU6jz63JLqxooM4z01xxOvjrtjYvOmr9AvPBoOVDCA/edit#gid=0 has the ID **1VVU6jz63JLqxooM4z01xxOvjrtjYvOmr9AvPBoOVDCA**.
+You will also need to update the `g.py` file with your own SPREADSHEET_ID, which can be found in the URL of the Google Sheet you're editing.  For example, https://docs.google.com/spreadsheets/d/10LzknYu4dBR5Q3XEQ1BGnpR6TsFl4yYWsGmUNkeRE_o/edit#gid=0 has the ID **10LzknYu4dBR5Q3XEQ1BGnpR6TsFl4yYWsGmUNkeRE_o**.
 
 ```python
 #!/usr/bin/env python3
 
 SCOPES = 'https://www.googleapis.com/auth/spreadsheets'
 GSPREAD_SCOPES = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-SPREADSHEET_ID = '1VVU6jz63JLqxooM4z01xxOvjrtjYvOmr9AvPBoOVDCA'
+SPREADSHEET_ID = '10LzknYu4dBR5Q3XEQ1BGnpR6TsFl4yYWsGmUNkeRE_o'
 ```
 
 **NOTE**: after you first run the application, you will be asked to authenticate via logging in to your Google account.  This will create a necessary `token.json` file and give your console permission to access your Google Sheet.
