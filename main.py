@@ -542,16 +542,17 @@ class Tweeder(object):
 		lists = tw.get_twitter_lists(owner_screen_name)
 		for li in lists:
 			members = tw.get_twitter_list_members(li["id"])
-			print("Adding users from: "+li["name"])
-			for user in members["users"]:
-				uscreen_name = user['screen_name'].lower()
-				sheet.add_users_to_category('listed', [[uscreen_name]])
-				sleepy = random.randrange(1, 4) * 2
-				_x = sleepy
-				for _ in range(sleepy+1):
-					print('\r0{0} {1}'.format(_x, uscreen_name).ljust(30)+'\r', end='', flush=True)
-					_x -= 1
-					time.sleep(1)
+			answ = input("Add users from "+li["name"]+"? (Y/N): ")
+			if answ.lower() not in ('no', 'n', 'exit', 'e', 'quit', 'q'):
+				for user in members["users"]:
+					uscreen_name = user['screen_name'].lower()
+					sheet.add_users_to_category('listed', [[uscreen_name]])
+					sleepy = random.randrange(1, 4) * 2
+					_x = sleepy
+					for _ in range(sleepy+1):
+						print('\r0{0} {1}'.format(_x, uscreen_name).ljust(30)+'\r', end='', flush=True)
+						_x -= 1
+						time.sleep(1)
 
 		# remove duplicate users
 		sheet.remove_old_duplicate_category('listed')
