@@ -122,9 +122,19 @@ class AccountHandler(object):
 	# -----------  Send DM  -----------
 	def send_direct_message(self, uscreen_name):
 		t = self.t
-		sent = t.direct_messages.new(
-			user=uscreen_name,
-			text="test")
+		sent = t.direct_messages.events.new(
+			_json={
+				"event": {
+					"type": "message_create",
+					"message_create": {
+						"target": {
+								"recipient_id": t.users.show(screen_name=uscreen_name)["id"]},
+						"message_data": {
+								"text": "oh no! it looks like we havent talked in a while... how have u been? if ur not too busy, mayb tweet me what ur up to, or feel free to just ignore this if u want me to unfollow u.  more info @ telepath.icu/followback if ur confused lol. ily :)"}
+					}
+				}
+			}
+		)
 
 		return sent
 
@@ -169,7 +179,7 @@ class AccountHandler(object):
 	# -----------  Unfollow users on Twitter  -----------
 	def unfollow_twitter_user(self, uscreen_name):
 		t = self.t
-    # TODO add safety net for private accounts
+		# TODO add safety net for private accounts
 		t.friendships.destroy(screen_name=uscreen_name)
 
 		return True
@@ -364,6 +374,7 @@ class ExemptHandler(object):
 	# -----------  Delete old dates from MENTIONS Spreadsheet  -----------
 	def remove_old_mentions(self):
 		service = self.service
+		dm_list = self.get_category_users('DM', 'B')
 		MENTIONS_DATE_COL = "MENTIONS!C2:C"
 
 		result = service.spreadsheets().values().get(
@@ -375,18 +386,21 @@ class ExemptHandler(object):
 		if not values:
 			return False
 		else:
-			screen_names = []
-			past_time = datetime.now() - relativedelta(months=6)
-			last_week = datetime.now() - relativedelta(days=6)
+			dm_screen_names = []
+			removed_screen_names = []
+			past_time = (datetime.now() - relativedelta(months=6)).replace(tzinfo=utc)
+			up_next_end = (datetime.now() - relativedelta(months=6) + relativedelta(days=7)).replace(tzinfo=utc)
+			last_week = (datetime.now() - relativedelta(days=6)).replace(tzinfo=utc)
 			row_index = 2 # row_index is offset by 2 in Google Sheets
 
-			print('Deleting mentions older than ' + str(past_time.replace(tzinfo=utc)) + '...')
+			print('Deleting mentions older than ' + str(past_time) + '...')
 
 			# double-check IFTTT applet is running (if there have been mentions in the last 7 days)
 			cont = True
 			recent_mentions = False
 			for datecol in values:
-				if datetime.strptime(datecol[0],"%m/%d/%Y").replace(tzinfo=utc) > last_week.replace(tzinfo=utc):
+				udatetime = datetime.strptime(datecol[0],"%m/%d/%Y").replace(tzinfo=utc)
+				if udatetime > last_week:
 					recent_mentions = True
 			if not recent_mentions:
 				print('Please double-check that IFTTT is running the applet.')
@@ -396,15 +410,20 @@ class ExemptHandler(object):
 
 			if cont == True:
 				for datecol in values:
-					if datetime.strptime(datecol[0],"%m/%d/%Y").replace(tzinfo=utc) < past_time.replace(tzinfo=utc):
-						screen_names.append(self.get_cell_value('mentions', 'A'+str(row_index)))
+					uscreen_name = self.get_cell_value('mentions', 'A'+str(row_index)).lower()
+					udatetime = datetime.strptime(datecol[0],"%m/%d/%Y").replace(tzinfo=utc)
+					if udatetime < past_time:
+						removed_screen_names.append(uscreen_name)
 						self.remove_row_from_category_spreadsheet('mentions', row_index)
 					else:
-						# only increase the row_index if you didn't delete a row
 						row_index += 1
+						# check if user submitted grace-period entry
+						if udatetime < up_next_end and uscreen_name in dm_list:
+							dm_screen_names.append(uscreen_name)
+						else:
+							break
 
-				return screen_names
-
+				return [removed_screen_names, dm_screen_names]
 			return False
 		return True
 
@@ -673,6 +692,7 @@ class Tweeder(object):
 
 	# -----------  Daily Tasks  -----------
 	def dailies(self):
+		tw = self.tw
 		sheet = self.sheet
 
 		# Reset CURSORs
@@ -680,12 +700,16 @@ class Tweeder(object):
 		sheet.overwrite_cleanup_cursor('')
 
 		# Remove old mentions
-		removed_users = list(set(sheet.remove_old_mentions()))
+		[removed_users, dm_screen_names] = sheet.remove_old_mentions()
+		removed_users = list(set(removed_users))
 		for screen_name in removed_users:
 			uscreen_name = screen_name.lower()
 			if not self.user_is_whitelisted(uscreen_name):
 				print(STARTC + uscreen_name + ' has not tweeted at you in 6 months.' + ENDC)
 				self.unfollow_after_newly_whitelisted_check(uscreen_name)
+		for screen_name in dm_screen_names:
+			uscreen_name = screen_name.lower()
+			tw.send_direct_message(uscreen_name)
 
 		# Unfollow inactive users
 		self.remove_unfollowers_from_categories('telepathics')
@@ -739,7 +763,11 @@ def menu():
 			tweeder.add_listed_users_to_whitelist('telepathics')
 		elif opt == user_options[6]:
 			# TODO check if user is in whitelist after removal, unfollow if not
-			tweeder.sheet.remove_old_mentions()
+			[removed_screen_names, dm_screen_names] = tweeder.sheet.remove_old_mentions()
+			print('cleaned up: ', removed_screen_names)
+			for screen_name in dm_screen_names:
+				uscreen_name = screen_name.lower()
+				tweeder.tw.send_direct_message(uscreen_name)
 		elif opt == user_options[7]:
 			tweeder.remove_unfollowers_from_categories('telepathics')
 		elif opt == user_options[8]:
