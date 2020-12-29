@@ -47,11 +47,10 @@ Use the following line to format each row:
 
 Make a copy of the [Google Sheets template](https://docs.google.com/spreadsheets/d/10LzknYu4dBR5Q3XEQ1BGnpR6TsFl4yYWsGmUNkeRE_o/edit#gid=175422382) data storage.
 
-Rename it to "Twitter mentions" so IFTTT can find and update it easily.
+Rename it to whatever you set it to in your IFTTT applet.
 
 You can also create other category sheets to use with Tweeder, but you will have to adjust some code and your WHITELIST script.  Mine also includes:
 
-* INTERACTIONS (beta)
 * LISTED
 * MANUAL
 
@@ -73,11 +72,13 @@ Then, install the Google Client Library using pip:
 pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib
 ```
 
-You will also need to update the `g.py` file with your own SPREADSHEET_ID, which can be found in the URL of the Google Sheet you're editing.  For example, https://docs.google.com/spreadsheets/d/10LzknYu4dBR5Q3XEQ1BGnpR6TsFl4yYWsGmUNkeRE_o/edit#gid=0 has the ID **10LzknYu4dBR5Q3XEQ1BGnpR6TsFl4yYWsGmUNkeRE_o**.
+You will also need to update the `g.py` file with your own `SPREADSHEET_ID`, which can be found in the URL of the Google Sheet you're editing.  For example, https://docs.google.com/spreadsheets/d/10LzknYu4dBR5Q3XEQ1BGnpR6TsFl4yYWsGmUNkeRE_o/edit#gid=0 has the ID **10LzknYu4dBR5Q3XEQ1BGnpR6TsFl4yYWsGmUNkeRE_o**.
 
 ```python
 #!/usr/bin/env python3
 
+SHEET_NAME = '@telepathics Reply Guys'
+ROW_OFFSET = 2
 SCOPES = 'https://www.googleapis.com/auth/spreadsheets'
 GSPREAD_SCOPES = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
 SPREADSHEET_ID = '10LzknYu4dBR5Q3XEQ1BGnpR6TsFl4yYWsGmUNkeRE_o'
@@ -120,10 +121,13 @@ CONSUMER_SECRET='ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 ACCESS_TOKEN_KEY='1234567890-ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 ACCESS_TOKEN_SECRET='ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 MIN_FAVS=50
-# change MIN_FAVS to the minimum amount of favourites a tweet needs to avoid deletion
+AUTH_SCREEN_NAME='YOUR_SCREEN_NAME'
+DM_MSG='oh no! it looks like we havent talked in a while... how have u been?'
 ```
 
-Make sure that your application has read/write access to your account.  I called mine "Tweeder by maryn", but you can call yours whatever you want.  You can use this cute little icon, if you don't want the default bird.
+Change `MIN_FAVS` to a minimum about of favourites on a tweet to bypass deletion, and change `AUTH_SCREEN_NAME` to your twitter handle.  Update `DM_MSG` to be the message that gets sent to anyone who is up next in the purge queue.  Keep it short! [Check here for limits](https://developer.twitter.com/en/docs/twitter-api/v1/direct-messages/sending-and-receiving/api-reference/new-event).
+
+Make sure that your application has read/write access to your account and DMs.  I called mine "Tweeder by maryn", but you can call yours whatever you want.  You can use this cute little icon, if you don't want the default bird.
 
 <p align="center">
   <img height="200" src="https://raw.githubusercontent.com/revertdata/tweeder/master/tweeder.PNG?token=ACZLNMUPMGJLG5UNCWANZS26CJINE">

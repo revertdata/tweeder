@@ -9,8 +9,10 @@ service_credentials.json
 .vscode
 .prettierrc
 __pycache__
+user.json
 users.json
 tweet.json
+rates.json
 whitelist.txt
 errors.txt
 twitter-2019-12-19-0b6779fa1ee925b6e06149871038aaf59dbd309ce409206c9dcaee3d860bff51

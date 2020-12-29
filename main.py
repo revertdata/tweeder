@@ -22,33 +22,44 @@ import json
 import random
 
 from twitter import Twitter, OAuth
-from t import ACCESS_TOKEN_KEY, ACCESS_TOKEN_SECRET, CONSUMER_KEY, CONSUMER_SECRET, MIN_FAVS
+from t import ACCESS_TOKEN_KEY, ACCESS_TOKEN_SECRET, CONSUMER_KEY, CONSUMER_SECRET, MIN_FAVS, AUTH_SCREEN_NAME, DM_MSG
 
 import gspread
 from googleapiclient.discovery import build
-from g import SCOPES, SPREADSHEET_ID, GSPREAD_SCOPES
+from g import SHEET_NAME, ROW_OFFSET, SCOPES, SPREADSHEET_ID, GSPREAD_SCOPES
 
 STARTC='\033[90m'
 ENDC='\033[0m'
 utc=pytz.UTC
 SHEET_LINK = 'https://docs.google.com/spreadsheets/d/'+SPREADSHEET_ID+'/edit#gid=0'
-ROW_OFFSET = 2
+CANCEL_OPTIONS = ('no', 'n', 'exit', 'e', 'quit', 'q')
 
 # =============================================
 # =          Public Helper Functions          =
 # =============================================
 
-def displayError(e, location):
-	print()
-	print("-----------")
-	print()
+def sleep_overlay(prev_text='', sleepy=random.randrange(1,8)):
+	_x = sleepy
+	for _ in range(sleepy+1):
+		print('\r0{0} {1}'.format(_x, prev_text).ljust(30)+'\r', end='', flush=True)
+		_x -= 1
+		time.sleep(1)
+
+	return True
+
+def display_error(e, location):
+	print("\n-----------\n")
 	print("ERROR in " + location + ":")
 	print(STARTC)
 	print(e)
-	print()
-	print(SHEET_LINK)
-	print(ENDC)
-	print("-----------")
+	print("\n" + SHEET_LINK + ENDC)
+	print("\n-----------\n")
+
+	return
+
+def max_request_limit_warning(sleepy):
+
+	return sleep_overlay(STARTC + 'MAX_REQUEST Limit reached.  Please wait...' + ENDC, sleepy)
 
 # =============================================
 # =           Account Handler Class           =
@@ -59,26 +70,54 @@ class AccountHandler(object):
 		self.t = Twitter(auth=OAuth(ACCESS_TOKEN_KEY, ACCESS_TOKEN_SECRET, CONSUMER_KEY, CONSUMER_SECRET))
 		self.feed = []
 		self.friends = []
+		self.resources = self.t.application.rate_limit_status()['resources']
+
+	# -----------  Check Rate Limit  -----------
+	def check_rate_limit(self):
+		t = self.t
+		resources = self.resources
+		reset_time = self.resources['application']['/application/rate_limit_status']['reset']
+		curr_epoch = int(time.time())
+		if reset_time < curr_epoch:
+			resources = t.application.rate_limit_status()['resources']
+			self.resources = resources
+
+		return resources
+
+	# -----------  Update Rate Limit  -----------
+	def update_t_rate_limit(self, resource, path, minus_remaining=1):
+		rate_limit = self.check_rate_limit()[resource][path]
+		warning_complete = False
+		while rate_limit['remaining'] <= 1 and warning_complete != True:
+			warning_complete = max_request_limit_warning(int(time.time()) - rate_limit['reset'])
+
+		return warning_complete
 
 	# -----------  Get Twitter Followers  -----------
 	def get_twitter_friends(self, cursor):
 		t = self.t
-		friends = t.friends.list(count=200, skip_status=True, include_user_entities=False, cursor=cursor)
 
+		friends = t.friends.list(count=200, skip_status=True, include_user_entities=False, cursor=cursor)
+		self.update_t_rate_limit('friends', '/friends/list')
 		self.friends = friends
+
 		return friends
 
 	# -----------  Get Twitter Lists  -----------
 	def get_twitter_lists(self, uscreen_name):
 		t = self.t
+
 		owned_lists = t.lists.ownerships(count=25, screen_name=uscreen_name)["lists"]
+		self.update_t_rate_limit('lists', '/lists/ownerships')
 
 		return owned_lists
 
 	# -----------  Get List Members  -----------
 	def get_twitter_list_members(self, list_id):
 		t = self.t
+
 		screen_names = t.lists.members(list_id=list_id, count=5000, include_entities=False, skip_status=True)
+		self.update_t_rate_limit('lists', '/lists/members')
 
 		return screen_names
 
@@ -97,13 +136,14 @@ class AccountHandler(object):
 					if old_enough:
 						old_tweets.append(tweet)
 				except Exception as e:
-					displayError(e, 'AccountHandler.get_old_tweets')
+					display_error(e, 'AccountHandler.get_old_tweets')
 					continue
 		return old_tweets, created_at
 
 	# -----------  Send DM  -----------
 	def send_direct_message(self, uscreen_name):
 		t = self.t
+
 		sent = t.direct_messages.events.new(
 			_json={
 				"event": {
@@ -112,11 +152,12 @@ class AccountHandler(object):
 						"target": {
 								"recipient_id": t.users.show(screen_name=uscreen_name)["id"]},
 						"message_data": {
-								"text": "oh no! it looks like we havent talked in a while... how have u been? if ur not too busy, mayb tweet me what ur up to, or feel free to just ignore this if u want me to unfollow u.  more info @ telepath.icu/followback if ur confused lol. ily :)"}
+								"text": DM_MSG}
 					}
 				}
 			}
 		)
+		self.update_t_rate_limit('direct_messages', '/direct_messages/sent_and_received')
 
 		return sent
 
@@ -131,10 +172,12 @@ class AccountHandler(object):
 					t.statuses.destroy(_id=tweet['id_str'])
 					print(tweet['full_text'])
 					print('DELETED ' + tweet['id_str'] + ' (' + created_at.strftime("%a %b %d %H:%M:%S %z %Y") + ')')
-					print('* ' + tweet['favorite_count'] + ' favorites')
-					print()
+					print('* ' + tweet['favorite_count'] + ' favorites\n')
+					# TODO figure out more accurate rate limit
+					sleep_overlay(STARTC + 'Looking for next archived tweet...' + ENDC)
+
 				except Exception as e:
-					displayError(e, 'AccountHandler.delete_archived_tweets')
+					display_error(e, 'AccountHandler.delete_archived_tweets')
 					continue
 		return True
 
@@ -150,10 +193,11 @@ class AccountHandler(object):
 				if interactions == 0:
 					t.statuses.destroy(_id=tweet["id_str"])
 					print(tweet['full_text'] + ' (' + str(interactions) + ' interactions) ')
-					print('DELETED ' + tweet['id_str'] + ' (' + created_at.strftime("%a %b %d %H:%M:%S %z %Y") + ')')
-					print()
+					print('DELETED ' + tweet['id_str'] + ' (' + created_at.strftime("%a %b %d %H:%M:%S %z %Y") + ')\n')
+					# TODO figure out more accurate rate limit
+					sleep_overlay(STARTC + 'Looking for next tweet...' + ENDC)
 			except Exception as e:
-					displayError(e, 'AccountHandler.delete_tweets_without_interactions')
+					display_error(e, 'AccountHandler.delete_tweets_without_interactions')
 					continue
 
 		return True
@@ -161,15 +205,23 @@ class AccountHandler(object):
 	# -----------  Unfollow users on Twitter  -----------
 	def unfollow_twitter_user(self, uscreen_name):
 		t = self.t
-		user = t.users.show(screen_name=uscreen_name)
-		if user["protected"] == False:
-			t.friendships.destroy(screen_name=uscreen_name)
-		else:
-			print()
-			print('Didn\'t unfollow https://twitter.com/' + uscreen_name + ' [user is protected]')
-			print()
 
-		return True
+		user = t.users.show(screen_name=uscreen_name)
+		self.update_t_rate_limit('users', '/users/show/:id')
+
+		if user["protected"] == False and user["following"] == True:
+			t.friendships.destroy(screen_name=uscreen_name)
+			# TODO figure out more accurate rate limit
+			sleep_overlay(STARTC + 'unfollowing ' + uscreen_name + ENDC)
+			return True
+		else:
+			no_unfollow_msg = ''
+			if user["following"] == True:
+				no_unfollow_msg += 'Didn\'t unfollow https://twitter.com/' + uscreen_name
+				if user["protected"] == True:
+					no_unfollow_msg += STARTC + ' [user is protected]' + ENDC
+				print(no_unfollow_msg)
+			return False
 
 	# -----------  Add Users to Twitter List  -----------
 	def add_users_to_list(self, screen_names, list_id, list_slug, owner_screen_name):
@@ -184,9 +236,10 @@ class AccountHandler(object):
 				owner_screen_name=owner_screen_name,
 				screen_name=chunk
 			)
+			# TODO figure out more accurate rate limit
+			sleep_overlay(STARTC + 'Loading...' + ENDC)
 			print("Added the following users to the list '" + list_slug + "'.")
 			print(chunk)
-			print()
 
 		return True
 
@@ -195,10 +248,17 @@ class AccountHandler(object):
 # ============================================
 
 class ExemptHandler(object):
-	def __init__(self):
+	def __init__(self, reset):
+		self.rate_limit = {
+			# sheets api: 100 requests/100 seconds/1 user
+			"limit": 100,
+			"remaining": 100,
+			"reset": reset
+		}
+
 		self.service, self.sheet = self.g_auth()
-		self.whitelist = self.get_whitelist()
-		self.categories = ['MENTIONS', 'INTERACTIONS', 'LISTED']
+		self.whitelist = self.get_category_users('whitelist')
+		self.categories = ['MENTIONS', 'LISTED']
 
 		return
 
@@ -213,15 +273,32 @@ class ExemptHandler(object):
 
 		gcreds = ServiceAccountCredentials.from_json_keyfile_name('service_credentials.json', GSPREAD_SCOPES)
 		gclient = gspread.authorize(gcreds)
-		sheet = gclient.open("Twitter mentions")
+		sheet = gclient.open(SHEET_NAME)
 
 		return service, sheet
 
-	# -----------  Get Whitelist  -----------
-	def get_whitelist(self):
-		values = self.get_category_users('whitelist')
+	# -----------  Reset Rate Limit  -----------
+	def reset_g_rate_limit(self):
+		rate_limit = {
+			"limit": 100,
+			"remaining": 100,
+			"reset": time.time()
+		}
+		self.rate_limit = rate_limit
 
-		return values
+		return rate_limit
+
+	# -----------  Update Rate Limit  -----------
+	def update_g_rate_limit(self, minus_remaining=1):
+		rate_limit = self.rate_limit
+		time_left = 100 + rate_limit['reset'] - time.time()
+		if rate_limit['remaining'] <= 1 and time_left <= 0:
+			max_request_limit_warning(100)
+			self.reset_g_rate_limit()
+		else:
+			self.rate_limit['remaining'] -= minus_remaining
+
+		return
 
 	# -----------  Get screen_names from specific category  -----------
 	def get_category_users(self, category, col='A'):
@@ -232,6 +309,7 @@ class ExemptHandler(object):
 			spreadsheetId=SPREADSHEET_ID,
 			range=RANGE_NAME
 		).execute()
+		self.update_g_rate_limit()
 		values = result.get('values', [])
 
 		cat_users = []
@@ -255,6 +333,7 @@ class ExemptHandler(object):
 			spreadsheetId=SPREADSHEET_ID,
 			range=RANGE_NAME
 		).execute()
+		self.update_g_rate_limit()
 		values = result.get('values', [])
 
 		if not values:
@@ -280,7 +359,6 @@ class ExemptHandler(object):
 	# -----------  Overwrite cell in spreadsheet  -----------
 	def overwrite_cell(self, value, category, range):
 		service = self.service
-
 		resource = {"values": [[value]]}
 		CAT_RANGE = category.upper()+"!"+range
 
@@ -289,6 +367,7 @@ class ExemptHandler(object):
 			spreadsheetId=SPREADSHEET_ID,
 			range=CAT_RANGE,
 		).execute()
+		self.update_g_rate_limit()
 
 		# overwrite
 		service.spreadsheets().values().append(
@@ -297,6 +376,7 @@ class ExemptHandler(object):
 			body=resource,
 			valueInputOption="USER_ENTERED"
 		).execute()
+		self.update_g_rate_limit()
 
 		return
 
@@ -327,6 +407,7 @@ class ExemptHandler(object):
 			body=resource,
 			valueInputOption="USER_ENTERED"
 		).execute()
+		self.update_g_rate_limit()
 
 		return
 
@@ -344,17 +425,16 @@ class ExemptHandler(object):
 				removed = True
 
 		if removed:
-			print(STARTC+"Removed "+uscreen_name+" from "+category+ENDC)
+			print(STARTC + "Removed " + uscreen_name + " from " + category + ENDC)
 
 		return True
 
 	# -----------  Remove row from Category Spreadsheet  -----------
-	def remove_row_from_category_spreadsheet(self, category, row_index, printDeletion=True):
+	def remove_row_from_category_spreadsheet(self, category, row_index):
 		spreadsheet = self.sheet.worksheet(category.upper())
-		if printDeletion:
-			# only print on low-stress API calls
-			print(spreadsheet.row_values(row_index))
+
 		deleted = spreadsheet.delete_row(row_index)
+		self.update_g_rate_limit()
 
 		return deleted
 
@@ -368,6 +448,7 @@ class ExemptHandler(object):
 			spreadsheetId=SPREADSHEET_ID,
 			range=MENTIONS_DATE_COL
 		).execute()
+		self.update_g_rate_limit()
 		values = result.get('values', [])
 
 		if not values:
@@ -392,7 +473,7 @@ class ExemptHandler(object):
 			if not recent_mentions:
 				print('Please double-check that IFTTT is running the applet.')
 				answ = input('Continue? (Y/N): ')
-				if answ.lower() in ('no', 'n', 'exit', 'e', 'quit', 'q'):
+				if answ.lower() in CANCEL_OPTIONS:
 					cont = False
 
 			if cont == True:
@@ -423,41 +504,26 @@ class ExemptHandler(object):
 		if not values:
 			return False
 		else:
+			print('Cleaning up duplicate ' + category + '...')
+
 			row_index = 0 + ROW_OFFSET
 			duplicate_cursor = self.get_duplicate_cursor()
 			if duplicate_cursor in values:
 				row_index = values.index(duplicate_cursor) + ROW_OFFSET
 				values = values[values.index(duplicate_cursor):]
 
-
 			removed_screen_names = []
-			max_requests = 90 # sheets api: 100 requests/100 seconds/1 user
 			for index, uscreen_name in enumerate(values):
-				max_requests -= 1
-
 				# remove user from mentions sheets if listed or repeated
 				user_listed = category.lower() == 'mentions' and uscreen_name in listed
 				if user_listed or (values[index+1:].count(uscreen_name) > 0):
 					removed_screen_names.append(self.get_cell_value(category.lower(), 'A'+str(row_index)))
-					self.remove_row_from_category_spreadsheet(category.lower(), row_index, False)
+					self.remove_row_from_category_spreadsheet(category.lower(), row_index)
 				else:
-					# only increase the row_index if you didn't delete a row
 					row_index += 1
-					# only overwrite the duplicate_cursor if mention was kept
 					self.overwrite_duplicate_cursor(uscreen_name)
-					# subtract another request for overwriting duplicate cursor
-					max_requests -= 1
-					time.sleep(1)
 
-				if max_requests <= 0:
-					print('MAX_REQUESTS Limit reached.  Please wait 100 seconds to try again ('+str(datetime.now()+relativedelta(seconds=100))+').')
-					sleepy = 100 # 5 minutes
-					_x = sleepy
-					max_requests = 90
-					for _ in range(sleepy+1):
-						print('\r0{0} {1}'.format(_x, uscreen_name).ljust(30)+'\r', end='', flush=True)
-						_x -= 1
-						time.sleep(1)
+				sleep_overlay(STARTC + uscreen_name + ENDC)
 
 			return removed_screen_names
 
@@ -471,6 +537,18 @@ class Tweeder(object):
 	def __init__(self, tw, sheet):
 		self.tw = tw
 		self.sheet = sheet
+
+		return
+
+	# -----------  reset cursors -----------
+	def reset_cursors(self):
+		sheet = self.sheet
+
+		sheet.overwrite_next_cursor('-1')
+		sheet.overwrite_cleanup_cursor('')
+		sheet.overwrite_duplicate_cursor('')
+
+		return
 
 	# -----------  Add sheet category users to a twitter list  -----------
 	def add_sheet_category_users_to_tw_list(self, category, list_id, list_slug, owner_screen_name):
@@ -501,32 +579,29 @@ class Tweeder(object):
 	def add_listed_users_to_whitelist(self, owner_screen_name):
 		tw = self.tw
 		sheet = self.sheet
-
 		lists = tw.get_twitter_lists(owner_screen_name)
+		listed = sheet.get_category_users('listed')
+
 		for li in lists:
 			members = tw.get_twitter_list_members(li["id"])
 			answ = input("Add users from "+li["name"]+"? (Y/N): ")
-			if answ.lower() not in ('no', 'n', 'exit', 'e', 'quit', 'q'):
+			if answ.lower() not in CANCEL_OPTIONS:
 				for user in members["users"]:
 					uscreen_name = user['screen_name'].lower()
-					sheet.add_users_to_category('listed', [[uscreen_name]])
-					sleepy = random.randrange(1, 4) * 2
-					_x = sleepy
-					for _ in range(sleepy+1):
-						print('\r0{0} {1}'.format(_x, uscreen_name).ljust(30)+'\r', end='', flush=True)
-						_x -= 1
-						time.sleep(sleepy / 2)
-
-		# remove duplicate users
-		sheet.remove_old_duplicate_category('listed')
-
-	# -----------  View whitelisted users  -----------
-	def view_whitelisted_users(self):
-		sheet = self.sheet
-
-		whitelist = sheet.get_whitelist()
-		for screen_name in whitelist:
-			print(screen_name)
+					if uscreen_name not in listed:
+						followed_by = self.check_is_followed_by(uscreen_name)
+						if followed_by:
+							sheet.add_users_to_category('listed', [[uscreen_name]])
+							sleep_overlay(uscreen_name)
+						else:
+							unfollowed = tw.unfollow_twitter_user(uscreen_name)
+							if unfollowed == True:
+								try:
+									tw.t.lists.members.destroy(list_id=li["id"], screen_name=uscreen_name)
+								except Exception as e:
+									display_error(e, 'AccountHandler.unfollow_inactive_users')
+									continue
+		return
 
 	# -----------  Check if user is in whitelist  -----------
 	def user_is_whitelisted(self, uscreen_name):
@@ -546,33 +621,78 @@ class Tweeder(object):
 		if friends == []:
 			friends = tw.get_twitter_friends(next_cursor)
 
-		whitelisted = 0
-		for friend in friends['users']:
-			uscreen_name = friend['screen_name'].lower()
+		whitelisted = []
+		unfollowed_users = []
+		running = True
+		while running:
+			for friend in friends['users']:
+				uscreen_name = friend['screen_name'].lower()
+				if uscreen_name not in whitelisted and uscreen_name not in unfollowed_users:
+					try:
+						if self.user_is_whitelisted(uscreen_name):
+							print(STARTC + uscreen_name + ' is whitelisted.' + ENDC)
+							whitelisted.append(uscreen_name)
+							continue
+						else:
+							unfollowed = self.unfollow_after_newly_whitelisted_check(uscreen_name)
+							if unfollowed == False:
+								whitelisted.append(uscreen_name)
+							else:
+								unfollowed_users.append(uscreen_name)
+					except Exception as e:
+						display_error(e, 'AccountHandler.unfollow_inactive_users')
+						continue
+
+			if len(whitelisted) == len(friends['users']):
+				next_cursor = friends['next_cursor']
+				if (friends['next_cursor'] == 0):
+					next_cursor = -1
+					running = False
+				sheet.overwrite_next_cursor(next_cursor)
+				print("NEXT_CURSOR overwritten: "+str(next_cursor))
+				# reset!
+				friends = tw.get_twitter_friends(next_cursor)
+				whitelisted = []
+				unfollowed_users = []
+
+		self.remove_unfollowers_from_categories()
+		return
+
+	# -----------  Check if user is following  -----------
+	def check_is_followed_by(self, uscreen_name):
+		tw = self.tw
+		sheet = self.sheet
+
+		categories = sheet.categories
+		blocked_list = sheet.get_category_users('blocked')
+		manual_list = sheet.get_category_users('manual')
+		followed_by = False
+
+		if uscreen_name not in blocked_list:
 			try:
-				if self.user_is_whitelisted(uscreen_name):
-					print(STARTC + uscreen_name + ' is whitelisted.' + ENDC)
-					whitelisted += 1
-					continue
+				friendship = tw.t.friendships.show(source_screen_name=AUTH_SCREEN_NAME, target_screen_name=uscreen_name)
+
+				if friendship["relationship"]["target"]["following"] == False and uscreen_name not in manual_list:
+					print(STARTC + uscreen_name + " is not following." + ENDC)
+					for category in categories:
+						sheet.remove_user_from_category(category, uscreen_name)
+				elif friendship["relationship"]["target"]["followed_by"] == False:
+					print(STARTC + uscreen_name + " is a new Reply Guy!" + ENDC)
+					tw.t.friendships.create(screen_name=uscreen_name, follow=False)
+					tw.t.friendships.update(screen_name=uscreen_name, retweets=False)
+					followed_by = True
 				else:
-					self.unfollow_after_newly_whitelisted_check(uscreen_name)
-
+					tw.t.friendships.update(screen_name=uscreen_name, retweets=False)
+					followed_by = True
 			except Exception as e:
-				displayError(e, 'AccountHandler.unfollow_inactive_users')
-				continue
-			sleepy = random.randrange(1, 4) * 2
-			_x = sleepy
-			for _ in range(sleepy+1):
-				print('\r0{0} {1}'.format(_x, uscreen_name).ljust(30)+'\r', end='', flush=True)
-				_x -= 1
-				time.sleep(sleepy / 2)
+				# mark as error in sheet
+				for category in categories:
+					cat_users = sheet.get_category_users(category)
+					if uscreen_name in cat_users:
+						sheet.overwrite_cell('error', category, ('D' if category.lower() == 'mentions' else 'B') + str(cat_users.index(uscreen_name) + ROW_OFFSET))
+				display_error(e, 'AccountHandler.check_is_followed_by')
 
-		if whitelisted == len(friends['users']):
-			next_cursor = friends['next_cursor']
-			if (friends['next_cursor'] == 0):
-				next_cursor = -1
-			sheet.overwrite_next_cursor(next_cursor)
-			print("Everyone in this batch has been whitelisted. NEXT CURSOR overwritten: "+str(next_cursor))
+		return followed_by
 
 	# -----------  Check if user is "newly whitelisted", determine unfollow  -----------
 	def unfollow_after_newly_whitelisted_check(self, uscreen_name):
@@ -581,23 +701,19 @@ class Tweeder(object):
 		newly_whitelisted = self.add_tw_user_to_sheet_category(uscreen_name)
 		if newly_whitelisted:
 			print(STARTC + uscreen_name + ' is newly whitelisted.' + ENDC)
-			return False
 		else:
-			tw.unfollow_twitter_user(uscreen_name)
-			print('Unfollowed ' + uscreen_name)
+			unfollowed = tw.unfollow_twitter_user(uscreen_name)
+			if unfollowed == True:
+				print('Unfollowed ' + uscreen_name)
+				return True
 
-		return True
+		return False
 
 	# -----------  Remove users from categories if not following  -----------
-	def remove_unfollowers_from_categories(self, source_screen_name):
-		tw = self.tw
+	def remove_unfollowers_from_categories(self):
 		sheet = self.sheet
-
-		categories = sheet.categories
-		whitelist = sheet.get_whitelist()
+		whitelist = sheet.get_category_users('whitelist')
 		cleanup_cursor = sheet.get_cleanup_cursor()
-		categories_and_whitelist = categories
-		categories_and_whitelist.append("WHITELIST")
 
 		if cleanup_cursor in whitelist:
 			cleanup_cursor = cleanup_cursor.lower()
@@ -606,75 +722,20 @@ class Tweeder(object):
 			start_at_letter = [i for i in whitelist if i.startswith(cleanup_cursor[0][0])][0]
 			whitelist = whitelist[whitelist.index(start_at_letter):]
 
-		max_requests = 150
-		error_users = []
 		for screen_name in whitelist:
 			uscreen_name = screen_name.strip().lower()
-			blocked_list = sheet.get_category_users('blocked')
-			if uscreen_name not in blocked_list:
-				try:
-					friendship = tw.t.friendships.show(source_screen_name=source_screen_name, target_screen_name=uscreen_name)
-					max_requests -= 1
-
-					if friendship["relationship"]["target"]["following"] == False:
-						print(STARTC + uscreen_name + " is not following." + ENDC)
-						for category in categories:
-							sheet.remove_user_from_category(category, uscreen_name)
-					elif friendship["relationship"]["target"]["followed_by"] == False:
-						print(STARTC + uscreen_name + " is a new Reply Guy!" + ENDC)
-						tw.t.friendships.create(screen_name=uscreen_name, follow=False)
-						tw.t.friendships.update(screen_name=uscreen_name, retweets=False)
-					else:
-						tw.t.friendships.update(screen_name=uscreen_name, retweets=False)
-
-					if max_requests <= 0:
-						print('MAX_REQUESTS Limit reached.  Please wait 5 minutes to try again ('+str(datetime.now()+relativedelta(minutes=15))+').')
-						sleepy = 300 # 5 minutes
-						_x = sleepy
-						max_requests = 150
-						for _ in range(sleepy+1):
-							print('\r0{0} {1}'.format(_x, uscreen_name).ljust(30)+'\r', end='', flush=True)
-							_x -= 1
-							time.sleep(sleepy / 2)
-				except Exception as e:
-					# mark as error in sheet
-					for category in categories_and_whitelist:
-						cat_users = sheet.get_category_users(category)
-						if uscreen_name in cat_users:
-							sheet.overwrite_cell('error', category, ('D' if category.lower() == 'mentions' else 'B') + str(cat_users.index(uscreen_name) + ROW_OFFSET))
-					displayError(e, 'AccountHandler.remove_unfollowers_from_categories')
-					error_users.append(uscreen_name)
-					continue
+			self.check_is_followed_by(uscreen_name)
 
 			sheet.overwrite_cleanup_cursor(uscreen_name)
-			sleepy = random.randrange(1, 4) * 2
-			_x = sleepy
-			for _ in range(sleepy+1):
-				print('\r0{0} {1}'.format(_x, uscreen_name).ljust(30)+'\r', end='', flush=True)
-				_x -= 1
-				time.sleep(sleepy / 2)
+			sleep_overlay(uscreen_name)
 
-		if (len(error_users) > 0):
-			print()
-			print("-----------")
-			print(STARTC)
-			print("Errors with the following users:")
-			print(*error_users, sep = ", ")
-			print()
-			print(SHEET_LINK)
-			print(ENDC)
-			print("-----------")
+		return
 
-	# -----------  Daily Tasks  -----------
-	def dailies(self):
+	# -----------  Remove old mentions  -----------
+	def remove_old_mentions(self):
 		tw = self.tw
 		sheet = self.sheet
 
-		# Reset CURSORs
-		sheet.overwrite_next_cursor('-1')
-		sheet.overwrite_cleanup_cursor('')
-
-		# Remove old mentions
 		[removed_users, dm_screen_names] = sheet.remove_old_mentions()
 		removed_users = list(set(removed_users))
 		for screen_name in removed_users:
@@ -686,9 +747,16 @@ class Tweeder(object):
 			uscreen_name = screen_name.lower()
 			tw.send_direct_message(uscreen_name)
 
-		# Unfollow inactive users
-		self.remove_unfollowers_from_categories('telepathics')
+		sheet.remove_old_duplicate_category('mentions')
+		return
+
+	# -----------  Daily Tasks  -----------
+	def dailies(self):
+		self.reset_cursors()
+		self.remove_old_mentions()
 		self.unfollow_inactive_users()
+
+		return
 
 # ======================================
 # =           Helper Options           =
@@ -697,15 +765,14 @@ class Tweeder(object):
 def menu(tweeder):
 	user_options = [
 		"0. Daily tasks",
-		"1. Delete tweets older than 2 years",
-		"2. Delete tweets without interactions",
-		"3. Unfollow users",
-		"4. Add listed users to whitelist",
-		"5. Remove mentions > 6 months",
-		"6. Clean category users",
-		"7. Reset CURSORs",
-		"8. Remove duplicate mentions",
-		"9. Remove duplicate listed"
+		"1. Unfollow users",
+		"2. Update listed users",
+		"3. Remove old mentions",
+		"4. Clean category users",
+		"5. Reset CURSORs",
+		"6. Delete tweets older than 2 years",
+		"7. Delete tweets without interactions",
+		"8. Sleep (in case of rate limit)"
 	]
 
 	opts = Picker(
@@ -717,39 +784,31 @@ def menu(tweeder):
 		return opts
 
 	for opt in opts:
+		print("\n----------- " + opt + " -----------")
 		if opt == user_options[0]:
 			tweeder.dailies()
 		elif opt == user_options[1]:
-			tweeder.tw.delete_archived_tweets()
-		elif opt == user_options[2]:
-			tweeder.tw.delete_tweets_without_interactions()
-		elif opt == user_options[3]:
 			tweeder.unfollow_inactive_users()
+		elif opt == user_options[2]:
+			tweeder.add_listed_users_to_whitelist(AUTH_SCREEN_NAME)
+		elif opt == user_options[3]:
+			tweeder.remove_old_mentions()
 		elif opt == user_options[4]:
-			tweeder.add_listed_users_to_whitelist('telepathics')
+			tweeder.remove_unfollowers_from_categories()
 		elif opt == user_options[5]:
-			# TODO check if user is in whitelist after removal, unfollow if not
-			[removed_screen_names, dm_screen_names] = tweeder.sheet.remove_old_mentions()
-			print('cleaned up: ', removed_screen_names)
-			for screen_name in dm_screen_names:
-				uscreen_name = screen_name.lower()
-				tweeder.tw.send_direct_message(uscreen_name)
+			tweeder.reset_cursors()
 		elif opt == user_options[6]:
-			tweeder.remove_unfollowers_from_categories('telepathics')
+			tweeder.tw.delete_archived_tweets()
 		elif opt == user_options[7]:
-			tweeder.sheet.overwrite_next_cursor('-1')
-			tweeder.sheet.overwrite_cleanup_cursor('')
-			tweeder.sheet.overwrite_duplicate_cursor('')
+			tweeder.tw.delete_tweets_without_interactions()
 		elif opt == user_options[8]:
-			removed_users = tweeder.sheet.remove_old_duplicate_category('mentions')
-			print(removed_users)
-		elif opt == user_options[9]:
-			tweeder.sheet.remove_old_duplicate_category('listed')
+			answ = input('How many seconds should we sleep?: ')
+			sleep_overlay('zzz', int(answ))
 		else:
 			return True
 
 	answ = input("Would you like to do more? (Y/N) ")
-	if answ.lower() in ('no', 'n', 'exit', 'e', 'quit', 'q'):
+	if answ.lower() in CANCEL_OPTIONS:
 		return False
 
 	return True
@@ -758,21 +817,24 @@ def main():
 	running = True
 
 	# ===== CONNECT TO RESOURCES AND CLASSES =====
-	_tw = AccountHandler()
-	_sheet = ExemptHandler()
-	tweeder = Tweeder(_tw, _sheet)
-	tweeder.sheet.overwrite_cell(str(datetime.now()), 'INFORMATION', 'B3')
-	print()
-	print("Connection complete!")
-	time.sleep(1)
-	print("Loading...")
-	time.sleep(3)
+	try:
+		_tw = AccountHandler()
+		_sheet = ExemptHandler(time.time())
+		tweeder = Tweeder(_tw, _sheet)
+		tweeder.sheet.overwrite_cell(str(datetime.now()), 'INFORMATION', 'B3')
+		print("\nConnection complete!")
+		sleep_overlay(STARTC + "Loading..." + ENDC, 3)
+		print()
+	except Exception as e:
+		display_error(e, 'CONNECTION')
+		sleep_overlay(STARTC + "Shutting down... Feel free to ctrl+c." + ENDC, 100)
+		running = False
 	# ===== CONNECTION COMPLETE =====
 
 	while running:
 		running = menu(tweeder)
 
-	print("Thank you, come again!")
+	print("Thank you, come again!\n")
 	return
 
 if __name__ == '__main__':
